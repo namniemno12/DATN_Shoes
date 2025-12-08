@@ -613,12 +613,13 @@ namespace BUS.Services
                     };
                 }
 
-                if (order.Status == (int)OrderStatusEnums.Delivered)
+                // Không cho phép hủy đơn khi đã giao hàng (Shipped) hoặc đã giao thành công (Delivered)
+                if (order.Status == (int)OrderStatusEnums.Shipped || order.Status == (int)OrderStatusEnums.Delivered)
                 {
                     return new CommonResponse<bool>
                     {
                         Success = false,
-                        Message = "Không thể hủy đơn hàng đã giao"
+                        Message = "Không thể hủy đơn hàng đã giao hoặc đang giao"
                     };
                 }
 

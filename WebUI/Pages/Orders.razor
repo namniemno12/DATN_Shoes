@@ -2,6 +2,7 @@
 @using System.Linq
 @inject Services.OrderService OrderService
 @inject Services.Interfaces.IAuthService AuthService
+@inject Services.ToastService ToastService
 @inject NavigationManager NavigationManager
 
 <div class="container-fluid py-4">
@@ -256,7 +257,7 @@
                                                         @onclick="() => ViewOrderDetail(order.OrderId)">
                                                     <i class="bi bi-eye me-1"></i>Chi tiết
                                                 </button>
-                                                @if (order.Status == 0)
+                                                @if (order.Status == 0 || order.Status == 1)
                                                 {
                                                     <button class="btn btn-outline-danger btn-sm" 
                                                             @onclick="() => CancelOrder(order.OrderId)">
@@ -284,6 +285,8 @@
         }
     </div>
 </div>
+
+<ToastNotification />
 
 @code {
     private string activeTab = "all";
@@ -475,10 +478,14 @@
             if (result.Success)
             {
                 order.Status = 5; // Update local state
+                ToastService.ShowSuccess("Đã hủy đơn hàng thành công");
                 StateHasChanged();
             }
             else
             {
+                // Reload orders to get latest status from server
+                await LoadOrdersAsync();
+                ToastService.ShowError(result.Message ?? "Không thể hủy đơn hàng. Vui lòng tải lại trang.");
                 Console.WriteLine($"Failed to cancel order: {result.Message}");
             }
         }

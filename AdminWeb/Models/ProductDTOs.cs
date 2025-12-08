@@ -170,6 +170,7 @@ namespace AdminWeb.Models
         public string ColorName { get; set; } = string.Empty;
         [System.Text.Json.Serialization.JsonPropertyName("HexColor")]
         public string HexColor { get; set; } = string.Empty;
+        public int ProductCount { get; set; }
     }
 
     public class CreateColorDTO

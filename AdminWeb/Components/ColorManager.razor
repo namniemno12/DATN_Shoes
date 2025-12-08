@@ -2,6 +2,7 @@
 @using AdminWeb.Services
 @using Microsoft.JSInterop
 @inject ColorService ColorService
+@inject ProductService ProductService
 @inject ToastService ToastService
 @inject IJSRuntime JSRuntime
 
@@ -187,7 +188,11 @@
     private async Task LoadColors()
     {
         isLoading = true;
-        colors = await ColorService.GetAllColorsAsync();
+        var colorsResponse = await ProductService.GetColorsAsync();
+        if (colorsResponse.Success)
+        {
+            colors = colorsResponse.Data;
+        }
         isLoading = false;
     }
 
