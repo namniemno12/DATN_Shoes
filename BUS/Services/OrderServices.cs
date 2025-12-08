@@ -548,6 +548,16 @@ namespace BUS.Services
                     };
                 }
 
+                // Kiểm tra nếu đơn hàng đang giao (Shipped) thì không cho phép hủy
+                if (req.Status == OrderStatusEnums.Cancelled && order.Status == (int)OrderStatusEnums.Shipped)
+                {
+                    return new CommonResponse<bool>
+                    {
+                        Success = false,
+                        Message = "Không thể hủy đơn hàng đang giao. Vui lòng liên hệ bộ phận hỗ trợ."
+                    };
+                }
+
                 // Kiểm tra nếu hủy đơn hàng đã thanh toán -> tự động hoàn tiền
                 if (req.Status == OrderStatusEnums.Cancelled)
                 {

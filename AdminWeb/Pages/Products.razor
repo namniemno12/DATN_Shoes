@@ -1708,6 +1708,7 @@
                 Variants = new List<AddVariantRequest> { new AddVariantRequest() },
                 Images = new List<AddImageRequest> { new AddImageRequest { DisplayOrder = 1, ImageType = "Main", IsDefault = true } }
             };
+            addModalColorDropdownOpen = new Dictionary<int, bool>();
             showAddModal = true;
             StateHasChanged();
         }
@@ -1721,12 +1722,15 @@
     {
         showAddModal = false;
         addProductForm = new();
+        addModalColorDropdownOpen = new Dictionary<int, bool>();
         StateHasChanged();
     }
 
     private void AddVariantRow()
     {
+        var newIndex = addProductForm.Variants.Count;
         addProductForm.Variants.Add(new AddVariantRequest());
+        addModalColorDropdownOpen[newIndex] = false;
     }
 
     private void RemoveVariantRow(int index)
