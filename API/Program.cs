@@ -82,7 +82,10 @@ builder.Services.AddTransient<IVoucherService, VoucherService>();
 builder.Services.AddTransient<IColorServices, ColorServices>();
 builder.Services.AddTransient<ISizeServices, SizeServices>();
 builder.Services.AddTransient<IRevenueService, RevenueService>();
+builder.Services.AddScoped<AddressRepository>();
 
+// Register Services
+builder.Services.AddScoped<AddressService>();
 // GHN Service Configuration
 builder.Services.Configure<DAL.DTOs.Shipping.GhnOptions>(builder.Configuration.GetSection("GHN"));
 builder.Services.AddHttpClient<BUS.Services.Interfaces.IGhnService, BUS.Services.GhnService>();
@@ -97,7 +100,7 @@ builder.Services.AddHostedService<OrderCancellationService>();
 // builder.Services.AddHostedService<GhnStatusUpdateBackgroundService>(); // GHN API thật
 builder.Services.AddHostedService<OrderStatusSimulationService>(); // Simulation mode (fake auto transition)
 
-builder.Services.AddMemoryCache(); 
+builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<IMemoryCacheSystem, MemoryCacheSystem>();
 
 
@@ -143,7 +146,7 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseCors("AllowAll");
-app.UseSession(); 
+app.UseSession();
 app.UseAuthorization();
 
 app.UseMiddleware<ErrorHandlerMiddleware>();

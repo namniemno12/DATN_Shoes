@@ -29,5 +29,13 @@ namespace DAL.DTOs.Orders.Req
         public string? GhnWardCode { get; set; }
         [MaxLength(500)]
         public string? GhnFullAddress { get; set; }
+        
+        /// <summary>
+        /// GHN Service Type (CẢ 2 ĐỀU CÓ PHÍ - tính theo GHN API):
+        /// - null hoặc 2 = Ship thường (3-5 ngày) - PHÍ RẺ (~15-30k tùy địa chỉ)
+        /// - 53320 = Ship hỏa tốc (1-2 ngày) - PHÍ CAO (~25-50k tùy địa chỉ)
+        /// Phí tăng theo: khoảng cách + cân nặng + số lượng
+        /// </summary>
+        public int? GhnServiceTypeId { get; set; }
     }
 }

@@ -1,0 +1,614 @@
+@using WebUI.Models
+@using WebUI.Services
+@using WebUI.Services.Interfaces
+@inject AddressService AddressService
+@inject IToastService ToastService
+@inject HttpClient Http
+@inject ConfigurationService ConfigService
+@inject IJSRuntime JSRuntime
+
+@if (IsVisible)
+{
+    <div class="modal-overlay-address" @onclick="OnBackdropClick">
+        <div class="modal-shell-address" @onclick:stopPropagation="true">
+            <div class="modal-header-address">
+                <h5 class="modal-title-address">
+                    <i class="fas fa-map-marker-alt me-2"></i>
+                    @(IsEditMode ? "Chỉnh sửa địa chỉ" : IsAddMode ? "Thêm địa chỉ mới" : "Địa chỉ của tôi")
+                </h5>
+                <button type="button" class="btn-close-address" @onclick="CloseModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="modal-body-address">
+                @if (IsAddMode || IsEditMode)
+                {
+                    <!-- Add/Edit Form -->
+                    <div class="address-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Tên người nhận <span class="required">*</span></label>
+                                <input class="form-control-address" @bind="FormData.ReceiverName" placeholder="Nguyễn Văn A" />
+                            </div>
+                            <div class="form-group">
+                                <label>Số điện thoại <span class="required">*</span></label>
+                                <input class="form-control-address" @bind="FormData.ReceiverPhone" placeholder="0901234567" />
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Tỉnh/Thành phố <span class="required">*</span></label>
+                            <select class="form-control-address" @onchange="OnProvinceChanged" disabled="@IsLoadingProvinces">
+                                <option value="">-- Chọn Tỉnh/Thành phố --</option>
+                                @if (Provinces != null)
+                                {
+                                    foreach (var province in Provinces)
+                                    {
+                                        <option value="@province.ProvinceID" selected="@(FormData.GhnProvinceId == province.ProvinceID)">
+                                            @province.ProvinceName
+                                        </option>
+                                    }
+                                }
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Quận/Huyện <span class="required">*</span></label>
+                            <select class="form-control-address" @onchange="OnDistrictChanged" disabled="@(Districts == null || IsLoadingDistricts)">
+                                <option value="">-- Chọn Quận/Huyện --</option>
+                                @if (Districts != null)
+                                {
+                                    foreach (var district in Districts)
+                                    {
+                                        <option value="@district.DistrictID" selected="@(FormData.GhnDistrictId == district.DistrictID)">
+                                            @district.DistrictName
+                                        </option>
+                                    }
+                                }
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Phường/Xã <span class="required">*</span></label>
+                            <select class="form-control-address" @onchange="OnWardChanged" disabled="@(Wards == null || IsLoadingWards)">
+                                <option value="">-- Chọn Phường/Xã --</option>
+                                @if (Wards != null)
+                                {
+                                    foreach (var ward in Wards)
+                                    {
+                                        <option value="@ward.WardCode" selected="@(FormData.GhnWardCode == ward.WardCode)">
+                                            @ward.WardName
+                                        </option>
+                                    }
+                                }
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Địa chỉ chi tiết <span class="required">*</span></label>
+                            <input class="form-control-address" @bind="FormData.AddressDetail" placeholder="Số nhà, tên đường..." />
+                        </div>
+
+                        <div class="form-check-address">
+                            <input type="checkbox" id="isDefault" @bind="FormData.IsDefault" />
+                            <label for="isDefault">Đặt làm địa chỉ mặc định</label>
+                        </div>
+
+                        <div class="form-actions">
+                            <button class="btn-secondary-address" @onclick="CancelForm">Hủy</button>
+                            <button class="btn-primary-address" @onclick="SaveAddress" disabled="@IsSaving">
+                                @if (IsSaving)
+                                {
+                                    <span>Đang lưu...</span>
+                                }
+                                else
+                                {
+                                    <span>@(IsEditMode ? "Cập nhật" : "Thêm địa chỉ")</span>
+                                }
+                            </button>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <!-- Address List -->
+                    <div class="address-list">
+                        @if (IsLoading)
+                        {
+                            <div class="text-center py-4">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Đang tải...</span>
+                                </div>
+                            </div>
+                        }
+                        else if (Addresses == null || !Addresses.Any())
+                        {
+                            <div class="empty-state">
+                                <i class="fas fa-map-marked-alt"></i>
+                                <p>Bạn chưa có địa chỉ nào</p>
+                                <button class="btn-primary-address" @onclick="ShowAddForm">
+                                    <i class="fas fa-plus me-2"></i>Thêm địa chỉ mới
+                                </button>
+                            </div>
+                        }
+                        else
+                        {
+                            <button class="btn-add-new" @onclick="ShowAddForm">
+                                <i class="fas fa-plus me-2"></i>Thêm địa chỉ mới
+                            </button>
+
+                            @foreach (var address in Addresses)
+                            {
+                                <div class="address-card @(address.IsDefault ? "default" : "")">
+                                    @if (address.IsDefault)
+                                    {
+                                        <span class="default-badge">Mặc định</span>
+                                    }
+                                    <div class="address-info">
+                                        <div class="address-header">
+                                            <strong>@address.ReceiverName</strong>
+                                            <span class="address-phone">@address.ReceiverPhone</span>
+                                        </div>
+                                        <p class="address-detail">@address.FullAddress</p>
+                                    </div>
+                                    <div class="address-actions">
+                                        @if (OnAddressSelected.HasDelegate)
+                                        {
+                                            <button class="btn-action btn-select" @onclick="() => SelectAddress(address)">
+                                                <i class="fas fa-check me-1"></i>Chọn
+                                            </button>
+                                        }
+                                        <button class="btn-action btn-edit" @onclick="() => ShowEditForm(address)">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        @if (!address.IsDefault)
+                                        {
+                                            <button class="btn-action btn-default" @onclick="() => SetDefault(address.AddressID)" title="Đặt làm mặc định">
+                                                <i class="fas fa-star"></i>
+                                            </button>
+                                        }
+                                        <button class="btn-action btn-delete" @onclick="() => ConfirmDelete(address.AddressID)">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback<AddressDto> OnAddressSelected { get; set; }
+
+    private List<AddressDto>? Addresses { get; set; }
+    private bool IsLoading { get; set; }
+    private bool IsSaving { get; set; }
+    private bool IsAddMode { get; set; }
+    private bool IsEditMode { get; set; }
+
+    // Form data
+    private AddressFormData FormData { get; set; } = new();
+    
+    // GHN data
+    private List<GhnProvince>? Provinces { get; set; }
+    private List<GhnDistrict>? Districts { get; set; }
+    private List<GhnWard>? Wards { get; set; }
+    private bool IsLoadingProvinces { get; set; }
+    private bool IsLoadingDistricts { get; set; }
+    private bool IsLoadingWards { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (IsVisible && !IsAddMode && !IsEditMode)
+        {
+            await LoadAddresses();
+            await LoadProvinces();
+        }
+    }
+
+    private async Task LoadAddresses()
+    {
+        IsLoading = true;
+        StateHasChanged();
+        
+        Addresses = await AddressService.GetUserAddressesAsync();
+        
+        IsLoading = false;
+        StateHasChanged();
+    }
+
+    private async Task LoadProvinces()
+    {
+        if (Provinces != null) return;
+        
+        IsLoadingProvinces = true;
+        try
+        {
+            var apiBaseUrl = await ConfigService.GetApiBaseUrlAsync();
+            var response = await Http.GetAsync($"{apiBaseUrl}/api/shipping/provinces");
+            response.EnsureSuccessStatusCode();
+            var result = await response.Content.ReadFromJsonAsync(typeof(GhnProvinceResponse)) as GhnProvinceResponse;
+            Provinces = result?.Data ?? new List<GhnProvince>();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading provinces: {ex.Message}");
+        }
+        finally
+        {
+            IsLoadingProvinces = false;
+        }
+    }
+
+    private async Task OnProvinceChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int provinceId))
+        {
+            FormData.GhnProvinceId = provinceId;
+            FormData.City = Provinces?.FirstOrDefault(p => p.ProvinceID == provinceId)?.ProvinceName ?? "";
+            FormData.GhnDistrictId = null;
+            FormData.GhnWardCode = null;
+            FormData.District = null;
+            FormData.Ward = "";
+            Districts = null;
+            Wards = null;
+            
+            await LoadDistricts(provinceId);
+        }
+    }
+
+    private async Task LoadDistricts(int provinceId)
+    {
+        IsLoadingDistricts = true;
+        StateHasChanged();
+        
+        try
+        {
+            var apiBaseUrl = await ConfigService.GetApiBaseUrlAsync();
+            var response = await Http.GetAsync($"{apiBaseUrl}/api/shipping/districts/{provinceId}");
+            response.EnsureSuccessStatusCode();
+            var result = await response.Content.ReadFromJsonAsync(typeof(GhnDistrictResponse)) as GhnDistrictResponse;
+            Districts = result?.Data ?? new List<GhnDistrict>();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading districts: {ex.Message}");
+        }
+        finally
+        {
+            IsLoadingDistricts = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnDistrictChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int districtId))
+        {
+            FormData.GhnDistrictId = districtId;
+            FormData.District = Districts?.FirstOrDefault(d => d.DistrictID == districtId)?.DistrictName;
+            FormData.GhnWardCode = null;
+            FormData.Ward = "";
+            Wards = null;
+            
+            await LoadWards(districtId);
+        }
+    }
+
+    private async Task LoadWards(int districtId)
+    {
+        IsLoadingWards = true;
+        StateHasChanged();
+        
+        try
+        {
+            var apiBaseUrl = await ConfigService.GetApiBaseUrlAsync();
+            var response = await Http.GetAsync($"{apiBaseUrl}/api/shipping/wards/{districtId}");
+            response.EnsureSuccessStatusCode();
+            var result = await response.Content.ReadFromJsonAsync(typeof(GhnWardResponse)) as GhnWardResponse;
+            Wards = result?.Data ?? new List<GhnWard>();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading wards: {ex.Message}");
+        }
+        finally
+        {
+            IsLoadingWards = false;
+            StateHasChanged();
+        }
+    }
+
+    private void OnWardChanged(ChangeEventArgs e)
+    {
+        var wardCode = e.Value?.ToString();
+        if (!string.IsNullOrEmpty(wardCode))
+        {
+            FormData.GhnWardCode = wardCode;
+            FormData.Ward = Wards?.FirstOrDefault(w => w.WardCode == wardCode)?.WardName ?? "";
+        }
+    }
+
+    private void ShowAddForm()
+    {
+        FormData = new AddressFormData();
+        IsAddMode = true;
+        IsEditMode = false;
+        Districts = null;
+        Wards = null;
+    }
+
+    private async Task ShowEditForm(AddressDto address)
+    {
+        FormData = new AddressFormData
+        {
+            AddressID = address.AddressID,
+            ReceiverName = address.ReceiverName,
+            ReceiverPhone = address.ReceiverPhone,
+            AddressDetail = address.AddressDetail,
+            City = address.City,
+            District = address.District,
+            Ward = address.Ward,
+            Street = address.Street,
+            GhnProvinceId = address.GhnProvinceId,
+            GhnDistrictId = address.GhnDistrictId,
+            GhnWardCode = address.GhnWardCode,
+            IsDefault = address.IsDefault
+        };
+        
+        IsEditMode = true;
+        IsAddMode = false;
+        
+        // Load districts and wards for editing
+        if (FormData.GhnProvinceId.HasValue)
+        {
+            await LoadDistricts(FormData.GhnProvinceId.Value);
+            if (FormData.GhnDistrictId.HasValue)
+            {
+                await LoadWards(FormData.GhnDistrictId.Value);
+            }
+        }
+    }
+
+    private void CancelForm()
+    {
+        IsAddMode = false;
+        IsEditMode = false;
+        FormData = new AddressFormData();
+        Districts = null;
+        Wards = null;
+    }
+
+    private async Task SaveAddress()
+    {
+        if (!ValidateForm()) return;
+        
+        IsSaving = true;
+        StateHasChanged();
+        
+        try
+        {
+            if (IsEditMode)
+            {
+                var updateReq = new UpdateAddressReq
+                {
+                    AddressID = FormData.AddressID,
+                    ReceiverName = FormData.ReceiverName,
+                    ReceiverPhone = FormData.ReceiverPhone,
+                    AddressDetail = FormData.AddressDetail,
+                    City = FormData.City,
+                    District = FormData.District,
+                    Ward = FormData.Ward,
+                    Street = FormData.Street ?? "",
+                    GhnProvinceId = FormData.GhnProvinceId,
+                    GhnDistrictId = FormData.GhnDistrictId,
+                    GhnWardCode = FormData.GhnWardCode,
+                    IsDefault = FormData.IsDefault
+                };
+                
+                var (success, message) = await AddressService.UpdateAddressAsync(FormData.AddressID, updateReq);
+                if (success)
+                {
+                    ToastService.ShowSuccess(message);
+                    await LoadAddresses();
+                    CancelForm();
+                }
+                else
+                {
+                    ToastService.ShowError(message);
+                }
+            }
+            else
+            {
+                var createReq = new CreateAddressReq
+                {
+                    UserID = 0, // Will be overridden by API from JWT token
+                    ReceiverName = FormData.ReceiverName?.Trim() ?? "",
+                    ReceiverPhone = FormData.ReceiverPhone?.Trim() ?? "",
+                    AddressDetail = FormData.AddressDetail?.Trim() ?? "",
+                    City = FormData.City?.Trim() ?? "",
+                    District = FormData.District?.Trim() ?? "",
+                    Ward = FormData.Ward?.Trim() ?? "",
+                    Street = FormData.Street?.Trim() ?? "",
+                    GhnProvinceId = FormData.GhnProvinceId,
+                    GhnDistrictId = FormData.GhnDistrictId,
+                    GhnWardCode = FormData.GhnWardCode,
+                    IsDefault = FormData.IsDefault
+                };
+                
+                Console.WriteLine($"[AddressManager] Creating address: Province={createReq.GhnProvinceId}, District={createReq.GhnDistrictId}, Ward={createReq.GhnWardCode}");
+                Console.WriteLine($"[AddressManager] City={createReq.City}, District={createReq.District}, Ward={createReq.Ward}");
+                
+                var (success, message, _) = await AddressService.CreateAddressAsync(createReq);
+                if (success)
+                {
+                    ToastService.ShowSuccess(message);
+                    await LoadAddresses();
+                    CancelForm();
+                }
+                else
+                {
+                    ToastService.ShowError(message);
+                }
+            }
+        }
+        finally
+        {
+            IsSaving = false;
+            StateHasChanged();
+        }
+    }
+
+    private bool ValidateForm()
+    {
+        if (string.IsNullOrWhiteSpace(FormData.ReceiverName))
+        {
+            ToastService.ShowError("Vui lòng nhập tên người nhận");
+            return false;
+        }
+        
+        if (string.IsNullOrWhiteSpace(FormData.ReceiverPhone))
+        {
+            ToastService.ShowError("Vui lòng nhập số điện thoại");
+            return false;
+        }
+        
+        if (!FormData.GhnProvinceId.HasValue)
+        {
+            ToastService.ShowError("Vui lòng chọn Tỉnh/Thành phố");
+            return false;
+        }
+        
+        if (!FormData.GhnDistrictId.HasValue)
+        {
+            ToastService.ShowError("Vui lòng chọn Quận/Huyện");
+            return false;
+        }
+        
+        if (string.IsNullOrWhiteSpace(FormData.GhnWardCode))
+        {
+            ToastService.ShowError("Vui lòng chọn Phường/Xã");
+            return false;
+        }
+        
+        if (string.IsNullOrWhiteSpace(FormData.AddressDetail))
+        {
+            ToastService.ShowError("Vui lòng nhập địa chỉ chi tiết");
+            return false;
+        }
+        
+        return true;
+    }
+
+    private async Task SetDefault(int addressId)
+    {
+        var (success, message) = await AddressService.SetDefaultAddressAsync(addressId);
+        if (success)
+        {
+            ToastService.ShowSuccess(message);
+            await LoadAddresses();
+        }
+        else
+        {
+            ToastService.ShowError(message);
+        }
+    }
+
+    private async Task ConfirmDelete(int addressId)
+    {
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "Bạn có chắc muốn xóa địa chỉ này?");
+        if (confirmed)
+        {
+            var (success, message) = await AddressService.DeleteAddressAsync(addressId);
+            if (success)
+            {
+                ToastService.ShowSuccess(message);
+                await LoadAddresses();
+            }
+            else
+            {
+                ToastService.ShowError(message);
+            }
+        }
+    }
+
+    private async Task SelectAddress(AddressDto address)
+    {
+        await OnAddressSelected.InvokeAsync(address);
+        await CloseModal();
+    }
+
+    private void OnBackdropClick()
+    {
+        if (!IsAddMode && !IsEditMode)
+        {
+            _ = CloseModal();
+        }
+    }
+
+    private async Task CloseModal()
+    {
+        IsVisible = false;
+        IsAddMode = false;
+        IsEditMode = false;
+        FormData = new AddressFormData();
+        await OnClose.InvokeAsync();
+    }
+
+    private class AddressFormData
+    {
+        public int AddressID { get; set; }
+        public string ReceiverName { get; set; } = string.Empty;
+        public string ReceiverPhone { get; set; } = string.Empty;
+        public string AddressDetail { get; set; } = string.Empty;
+        public string City { get; set; } = string.Empty;
+        public string? District { get; set; }
+        public string Ward { get; set; } = string.Empty;
+        public string Street { get; set; } = string.Empty;
+        public int? GhnProvinceId { get; set; }
+        public int? GhnDistrictId { get; set; }
+        public string? GhnWardCode { get; set; }
+        public bool IsDefault { get; set; }
+    }
+
+    // GHN Models
+    private class GhnProvince
+    {
+        public int ProvinceID { get; set; }
+        public string ProvinceName { get; set; } = string.Empty;
+    }
+
+    private class GhnDistrict
+    {
+        public int DistrictID { get; set; }
+        public string DistrictName { get; set; } = string.Empty;
+    }
+
+    private class GhnWard
+    {
+        public string WardCode { get; set; } = string.Empty;
+        public string WardName { get; set; } = string.Empty;
+    }
+
+    private class GhnProvinceResponse
+    {
+        public List<GhnProvince> Data { get; set; } = new();
+    }
+
+    private class GhnDistrictResponse
+    {
+        public List<GhnDistrict> Data { get; set; } = new();
+    }
+
+    private class GhnWardResponse
+    {
+        public List<GhnWard> Data { get; set; } = new();
+    }
+}

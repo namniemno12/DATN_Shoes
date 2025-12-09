@@ -13,6 +13,6 @@ namespace DAL.DTOs.Auths.Res
         public string? Picture { get; set; }
         public DateTime? DateOfBirth { get; set; }
         public int Status { get; set; }
-        public List<Address> Addresses { get; set; } = new();
+        public List<DAL.Models.Address> Addresses { get; set; } = new();
     }
 }

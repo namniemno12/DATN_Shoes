@@ -200,6 +200,9 @@ namespace DAL.DTOs.Shipping
     /// </summary>
     public class GhnCalculateFeeRequest
     {
+        [JsonPropertyName("shop_id")]
+        public int? ShopId { get; set; }
+
         [JsonPropertyName("service_type_id")]
         public int ServiceTypeId { get; set; } = 2;
 

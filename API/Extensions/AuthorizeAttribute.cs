@@ -37,16 +37,29 @@ namespace API.Extensions
                 var bearerToken = httpRequest.Headers["Authorization"].FirstOrDefault();
                 string? token = null;
 
+                Console.WriteLine($"[BAuthorize] Authorization header: {bearerToken ?? "NULL"}");
+
                 if (!string.IsNullOrWhiteSpace(bearerToken))
                 {
                     var match = Regex.Match(bearerToken, @"^Bearer\s+(.*)$", RegexOptions.IgnoreCase);
                     if (match.Success)
                     {
                         token = match.Groups[1].Value.Trim();
+                        Console.WriteLine($"[BAuthorize] Extracted token: {token.Substring(0, Math.Min(20, token.Length))}...");
                     }
+                    else
+                    {
+                        Console.WriteLine($"[BAuthorize] Bearer token format invalid");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"[BAuthorize] No Authorization header found");
                 }
 
                 var userId = _utils.ValidateToken(token);
+                Console.WriteLine($"[BAuthorize] Validated userId: {userId?.ToString() ?? "NULL"}");
+                
                 if (userId == null)
                 {
                     var res = new CommonResponse<object>

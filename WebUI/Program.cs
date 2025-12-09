@@ -26,6 +26,18 @@ public partial class Program
         // Register Auth Service
         builder.Services.AddScoped<IAuthService, AuthService>();
 
+        // Register authenticated HttpClient for services that need authorization
+        builder.Services.AddHttpClient("AuthorizedAPI", (sp, client) =>
+        {
+            client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress);
+        })
+        .AddHttpMessageHandler(sp =>
+        {
+            var authService = sp.GetRequiredService<IAuthService>();
+            var jsRuntime = sp.GetRequiredService<Microsoft.JSInterop.IJSRuntime>();
+            return new AuthorizationMessageHandler(authService, jsRuntime);
+        });
+
         // Register other Services
         builder.Services.AddScoped<CartService>();
         builder.Services.AddScoped<IProductService, ProductService>();
@@ -33,6 +45,8 @@ public partial class Program
         builder.Services.AddScoped<IPaymentService, PaymentService>();
         builder.Services.AddScoped<RecentlyViewedService>();
         builder.Services.AddScoped<VoucherService>();
+        builder.Services.AddScoped<AddressService>();
+        builder.Services.AddScoped<ShippingService>();
 
         // Register Google Auth Service
         builder.Services.AddScoped<GoogleAuthService>();
