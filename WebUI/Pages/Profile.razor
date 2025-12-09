@@ -126,9 +126,9 @@
                                 <i class="fas fa-map-marker-alt me-2"></i>
                                 Địa chỉ của tôi
                             </h5>
-                            <button class="btn btn-sm btn-outline-primary" disabled>
+                            <button class="btn btn-sm btn-outline-primary" @onclick="OpenAddressManager">
                                 <i class="fas fa-plus me-2"></i>
-                                Thêm địa chỉ mới
+                                Quản lý địa chỉ
                             </button>
                         </div>
                         <div class="card-body">
@@ -136,27 +136,27 @@
                             {
                                 @foreach (var address in userProfile.Addresses)
                                 {
-                                    <div class="address-item p-3 mb-3 border rounded">
+                                    <div class="address-item p-3 mb-3 border rounded @(address.IsDefault ? "border-primary" : "")">
                                         <div class="d-flex justify-content-between align-items-start">
                                             <div>
                                                 <div class="d-flex align-items-center mb-2">
-                                                    <strong class="me-2">Địa chỉ #{address.AddressID}</strong>
+                                                    <strong class="me-2">@address.ReceiverName</strong>
+                                                    @if (address.IsDefault)
+                                                    {
+                                                        <span class="badge bg-primary">Mặc định</span>
+                                                    }
                                                 </div>
+                                                <p class="mb-1">
+                                                    <i class="fas fa-phone me-2"></i>
+                                                    @address.ReceiverPhone
+                                                </p>
                                                 <p class="mb-1">
                                                     <i class="fas fa-map-marker-alt me-2"></i>
                                                     @address.AddressDetail
                                                 </p>
                                                 <p class="mb-0 text-muted">
-                                                    @address.Street, @address.Ward, @(address.District ?? ""), @address.City
+                                                    @address.Ward, @(address.District ?? ""), @address.City
                                                 </p>
-                                            </div>
-                                            <div class="btn-group-vertical btn-group-sm">
-                                                <button class="btn btn-outline-secondary" disabled>
-                                                    <i class="fas fa-edit"></i>
-                                                </button>
-                                                <button class="btn btn-outline-danger" disabled>
-                                                    <i class="fas fa-trash"></i>
-                                                </button>
                                             </div>
                                         </div>
                                     </div>
@@ -167,6 +167,10 @@
                                 <div class="text-center py-4 text-muted">
                                     <i class="fas fa-map-marker-alt fa-3x mb-3"></i>
                                     <p>Chưa có địa chỉ nào</p>
+                                    <button class="btn btn-primary" @onclick="OpenAddressManager">
+                                        <i class="fas fa-plus me-2"></i>
+                                        Thêm địa chỉ đầu tiên
+                                    </button>
                                 </div>
                             }
                         </div>
@@ -177,9 +181,14 @@
     }
 </div>
 
+<!-- Address Manager Modal -->
+<AddressManager IsVisible="@showAddressManager" 
+                OnClose="@CloseAddressManager" />
+
 @code {
     private UserWithAddressRes? userProfile;
     private bool isLoading = true;
+    private bool showAddressManager = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -198,6 +207,18 @@
     private void GoToLogin()
     {
         Navigation.NavigateTo("/login");
+    }
+
+    private void OpenAddressManager()
+    {
+        showAddressManager = true;
+    }
+
+    private async Task CloseAddressManager()
+    {
+        showAddressManager = false;
+        // Reload addresses after closing
+        await LoadUserProfile();
     }
 
     private async Task LoadUserProfile()

@@ -189,10 +189,21 @@ namespace WebUI.Models
     {
         public int AddressID { get; set; }
         public int UserID { get; set; }
+        public string ReceiverName { get; set; } = "";
+        public string ReceiverPhone { get; set; } = "";
         public string AddressDetail { get; set; } = "";
         public string City { get; set; } = "";
         public string? District { get; set; }
         public string Ward { get; set; } = "";
         public string Street { get; set; } = "";
+        
+        // GHN Integration Fields
+        public int? GhnProvinceId { get; set; }
+        public int? GhnDistrictId { get; set; }
+        public string? GhnWardCode { get; set; }
+        
+        public bool IsDefault { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime? UpdatedAt { get; set; }
     }
 }

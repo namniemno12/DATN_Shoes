@@ -134,46 +134,74 @@
                         }
                         else
                         {
-                            <button class="btn-add-new" @onclick="ShowAddForm">
-                                <i class="fas fa-plus me-2"></i>Thêm địa chỉ mới
+                            <button class="btn-add-new-address" @onclick="ShowAddForm">
+                                <i class="fas fa-plus-circle"></i>
+                                <span>Thêm địa chỉ mới</span>
                             </button>
 
-                            @foreach (var address in Addresses)
-                            {
-                                <div class="address-card @(address.IsDefault ? "default" : "")">
-                                    @if (address.IsDefault)
-                                    {
-                                        <span class="default-badge">Mặc định</span>
-                                    }
-                                    <div class="address-info">
-                                        <div class="address-header">
-                                            <strong>@address.ReceiverName</strong>
-                                            <span class="address-phone">@address.ReceiverPhone</span>
+                            <div class="addresses-grid">
+                                @foreach (var address in Addresses)
+                                {
+                                    <div class="address-card-modern @(address.IsDefault ? "is-default" : "")">
+                                        <div class="card-header-address">
+                                            <div class="receiver-info">
+                                                <h4 class="receiver-name">@address.ReceiverName</h4>
+                                                <span class="receiver-phone">
+                                                    <i class="fas fa-phone-alt"></i>
+                                                    @address.ReceiverPhone
+                                                </span>
+                                            </div>
+                                            @if (address.IsDefault)
+                                            {
+                                                <div class="badge-default">
+                                                    <i class="fas fa-check-circle"></i>
+                                                    Mặc định
+                                                </div>
+                                            }
                                         </div>
-                                        <p class="address-detail">@address.FullAddress</p>
-                                    </div>
-                                    <div class="address-actions">
-                                        @if (OnAddressSelected.HasDelegate)
-                                        {
-                                            <button class="btn-action btn-select" @onclick="() => SelectAddress(address)">
-                                                <i class="fas fa-check me-1"></i>Chọn
+
+                                        <div class="card-body-address">
+                                            <div class="address-full">
+                                                <i class="fas fa-map-marker-alt"></i>
+                                                <p>@address.FullAddress</p>
+                                            </div>
+                                        </div>
+
+                                        <div class="card-footer-address">
+                                            @if (OnAddressSelected.HasDelegate)
+                                            {
+                                                <button class="btn-action-modern btn-select-modern" 
+                                                        @onclick="() => SelectAddress(address)"
+                                                        title="Chọn địa chỉ này">
+                                                    <i class="fas fa-check"></i>
+                                                    <span>Chọn</span>
+                                                </button>
+                                            }
+                                            <button class="btn-action-modern btn-edit-modern" 
+                                                    @onclick="() => ShowEditForm(address)"
+                                                    title="Chỉnh sửa">
+                                                <i class="fas fa-edit"></i>
+                                                <span>Sửa</span>
                                             </button>
-                                        }
-                                        <button class="btn-action btn-edit" @onclick="() => ShowEditForm(address)">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        @if (!address.IsDefault)
-                                        {
-                                            <button class="btn-action btn-default" @onclick="() => SetDefault(address.AddressID)" title="Đặt làm mặc định">
-                                                <i class="fas fa-star"></i>
+                                            @if (!address.IsDefault)
+                                            {
+                                                <button class="btn-action-modern btn-star-modern" 
+                                                        @onclick="() => SetDefault(address.AddressID)"
+                                                        title="Đặt làm mặc định">
+                                                    <i class="fas fa-star"></i>
+                                                    <span>Mặc định</span>
+                                                </button>
+                                            }
+                                            <button class="btn-action-modern btn-delete-modern" 
+                                                    @onclick="() => ConfirmDelete(address.AddressID)"
+                                                    title="Xóa địa chỉ">
+                                                <i class="fas fa-trash-alt"></i>
+                                                <span>Xóa</span>
                                             </button>
-                                        }
-                                        <button class="btn-action btn-delete" @onclick="() => ConfirmDelete(address.AddressID)">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
+                                        </div>
                                     </div>
-                                </div>
-                            }
+                                }
+                            </div>
                         }
                     </div>
                 }
@@ -612,3 +640,482 @@
         public List<GhnWard> Data { get; set; } = new();
     }
 }
+
+<style>
+    /* Modal Overlay */
+    .modal-overlay-address {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.6);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+        padding: 20px;
+        backdrop-filter: blur(4px);
+    }
+
+    .modal-shell-address {
+        background: white;
+        border-radius: 16px;
+        max-width: 900px;
+        width: 100%;
+        max-height: 90vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        animation: slideUp 0.3s ease-out;
+    }
+
+    @@keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .modal-header-address {
+        padding: 24px 28px;
+        border-bottom: 2px solid #f1f3f5;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+
+    .modal-title-address {
+        font-size: 1.4rem;
+        font-weight: 700;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .btn-close-address {
+        background: rgba(255, 255, 255, 0.2);
+        border: none;
+        font-size: 1.5rem;
+        color: white;
+        cursor: pointer;
+        padding: 0;
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        transition: all 0.2s;
+    }
+
+    .btn-close-address:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: rotate(90deg);
+    }
+
+    .modal-body-address {
+        padding: 28px;
+        overflow-y: auto;
+        flex: 1;
+        background: #f8f9fa;
+    }
+
+    /* Add New Button */
+    .btn-add-new-address {
+        width: 100%;
+        padding: 16px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 1rem;
+        cursor: pointer;
+        margin-bottom: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        transition: all 0.3s;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-add-new-address:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+    }
+
+    .btn-add-new-address i {
+        font-size: 1.2rem;
+    }
+
+    /* Addresses Grid */
+    .addresses-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(100%, 1fr));
+        gap: 20px;
+    }
+
+    /* Modern Address Card */
+    .address-card-modern {
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 2px solid #e9ecef;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    .address-card-modern:hover {
+        border-color: #667eea;
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.15);
+        transform: translateY(-2px);
+    }
+
+    .address-card-modern.is-default {
+        border-color: #10b981;
+        background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+    }
+
+    .card-header-address {
+        padding: 20px 24px;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-bottom: 1px solid #dee2e6;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+    }
+
+    .address-card-modern.is-default .card-header-address {
+        background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+    }
+
+    .receiver-info {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .receiver-name {
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #1e293b;
+        margin: 0;
+    }
+
+    .receiver-phone {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #64748b;
+        font-size: 0.95rem;
+        font-weight: 500;
+    }
+
+    .receiver-phone i {
+        color: #667eea;
+    }
+
+    .badge-default {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: #10b981;
+        color: white;
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+    }
+
+    .card-body-address {
+        padding: 20px 24px;
+    }
+
+    .address-full {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        color: #475569;
+        line-height: 1.6;
+    }
+
+    .address-full i {
+        color: #667eea;
+        font-size: 1.1rem;
+        margin-top: 2px;
+        flex-shrink: 0;
+    }
+
+    .address-full p {
+        margin: 0;
+        font-size: 0.95rem;
+    }
+
+    /* Card Footer with Actions */
+    .card-footer-address {
+        padding: 16px 24px;
+        background: #f8f9fa;
+        border-top: 1px solid #e9ecef;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .btn-action-modern {
+        flex: 1;
+        min-width: 100px;
+        padding: 10px 16px;
+        border: 2px solid transparent;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .btn-action-modern:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .btn-action-modern i {
+        font-size: 1rem;
+    }
+
+    .btn-select-modern {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+
+    .btn-select-modern:hover {
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-edit-modern {
+        background: white;
+        color: #3b82f6;
+        border-color: #3b82f6;
+    }
+
+    .btn-edit-modern:hover {
+        background: #3b82f6;
+        color: white;
+        box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+    }
+
+    .btn-star-modern {
+        background: white;
+        color: #f59e0b;
+        border-color: #f59e0b;
+    }
+
+    .btn-star-modern:hover {
+        background: #f59e0b;
+        color: white;
+        box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+    }
+
+    .btn-delete-modern {
+        background: white;
+        color: #ef4444;
+        border-color: #ef4444;
+    }
+
+    .btn-delete-modern:hover {
+        background: #ef4444;
+        color: white;
+        box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+    }
+
+    /* Form Styles */
+    .address-form {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        background: white;
+        padding: 24px;
+        border-radius: 12px;
+    }
+
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .form-group label {
+        font-weight: 600;
+        color: #1e293b;
+        font-size: 0.95rem;
+    }
+
+    .required {
+        color: #ef4444;
+        margin-left: 2px;
+    }
+
+    .form-control-address {
+        padding: 12px 14px;
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
+        font-size: 0.95rem;
+        transition: all 0.2s;
+        font-family: inherit;
+    }
+
+    .form-control-address:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+    }
+
+    .form-control-address:disabled {
+        background: #f1f5f9;
+        cursor: not-allowed;
+        color: #94a3b8;
+    }
+
+    .form-check-address {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 8px;
+        padding: 12px;
+        background: #f8f9fa;
+        border-radius: 8px;
+    }
+
+    .form-check-address input[type="checkbox"] {
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+        accent-color: #667eea;
+    }
+
+    .form-check-address label {
+        cursor: pointer;
+        user-select: none;
+        margin: 0;
+        font-weight: 500;
+        color: #475569;
+    }
+
+    .form-actions {
+        display: flex;
+        gap: 12px;
+        justify-content: flex-end;
+        margin-top: 12px;
+        padding-top: 20px;
+        border-top: 2px solid #f1f3f5;
+    }
+
+    .btn-primary-address, .btn-secondary-address {
+        padding: 12px 28px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .btn-primary-address {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    }
+
+    .btn-primary-address:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-primary-address:disabled {
+        background: #cbd5e1;
+        cursor: not-allowed;
+        opacity: 0.6;
+        box-shadow: none;
+    }
+
+    .btn-secondary-address {
+        background: white;
+        color: #64748b;
+        border: 2px solid #e2e8f0;
+    }
+
+    .btn-secondary-address:hover {
+        background: #f8fafc;
+        border-color: #cbd5e1;
+    }
+
+    /* Empty State */
+    .empty-state {
+        text-align: center;
+        padding: 80px 30px;
+        background: white;
+        border-radius: 12px;
+    }
+
+    .empty-state i {
+        font-size: 5rem;
+        color: #cbd5e1;
+        margin-bottom: 24px;
+    }
+
+    .empty-state p {
+        font-size: 1.15rem;
+        color: #64748b;
+        margin-bottom: 28px;
+    }
+
+    /* Responsive */
+    @@media (max-width: 768px) {
+        .modal-shell-address {
+            max-width: 100%;
+            max-height: 100vh;
+            border-radius: 0;
+        }
+
+        .modal-body-address {
+            padding: 20px;
+        }
+
+        .form-row {
+            grid-template-columns: 1fr;
+        }
+
+        .card-footer-address {
+            flex-direction: column;
+        }
+
+        .btn-action-modern {
+            width: 100%;
+            min-width: auto;
+        }
+
+        .addresses-grid {
+            gap: 16px;
+        }
+    }
+</style>
