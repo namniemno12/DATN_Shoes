@@ -383,14 +383,23 @@ namespace BUS.Services
         {
             try
             {
-                _logger.LogInformation("Calculating GHN fee");
+                // Log request payload
+                var requestJson = JsonSerializer.Serialize(request, new JsonSerializerOptions { WriteIndented = true });
+                _logger.LogInformation("🔍 GHN CalculateFee Request:\n{Request}", requestJson);
 
-                var response = await _httpClient.PostAsJsonAsync("/v2/shipping-order/fee", request);
+                // Sử dụng full URL như CreateOrder
+                var fullUrl = "https://dev-online-gateway.ghn.vn/shiip/public-api/v2/shipping-order/fee";
+                _logger.LogInformation("🌐 Full GHN Fee URL: {Url}", fullUrl);
+
+                var response = await _httpClient.PostAsJsonAsync(fullUrl, request);
                 var responseContent = await response.Content.ReadAsStringAsync();
+                
+                _logger.LogInformation("📥 GHN CalculateFee Response - Status: {Status}, Body:\n{Body}", 
+                    response.StatusCode, responseContent);
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    _logger.LogError("GHN CalculateFee Error: {StatusCode} - {Response}", 
+                    _logger.LogError("❌ GHN CalculateFee Error: {StatusCode} - {Response}", 
                         response.StatusCode, responseContent);
                     return null;
                 }
@@ -399,11 +408,20 @@ namespace BUS.Services
                     responseContent,
                     new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
+                if (ghnResponse?.Data != null)
+                {
+                    _logger.LogInformation("✅ Calculated Fee: {Total}đ (Service: {ServiceFee}đ, Insurance: {Insurance}đ, COD: {CodFee}đ)",
+                        ghnResponse.Data.Total,
+                        ghnResponse.Data.ServiceFee,
+                        ghnResponse.Data.InsuranceFee ?? 0,
+                        ghnResponse.Data.CodFee ?? 0);
+                }
+
                 return ghnResponse?.Data;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error calculating GHN fee");
+                _logger.LogError(ex, "❌ Exception calculating GHN fee");
                 return null;
             }
         }

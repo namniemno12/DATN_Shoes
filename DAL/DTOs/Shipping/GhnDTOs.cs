@@ -203,11 +203,17 @@ namespace DAL.DTOs.Shipping
         [JsonPropertyName("shop_id")]
         public int? ShopId { get; set; }
 
+        [JsonPropertyName("service_id")]
+        public int? ServiceId { get; set; }
+
         [JsonPropertyName("service_type_id")]
-        public int ServiceTypeId { get; set; } = 2;
+        public int? ServiceTypeId { get; set; } = 2;
 
         [JsonPropertyName("from_district_id")]
         public int FromDistrictId { get; set; }
+
+        [JsonPropertyName("from_ward_code")]
+        public string? FromWardCode { get; set; }
 
         [JsonPropertyName("to_district_id")]
         public int ToDistrictId { get; set; }
@@ -232,6 +238,15 @@ namespace DAL.DTOs.Shipping
 
         [JsonPropertyName("cod_value")]
         public int? CodValue { get; set; }
+
+        [JsonPropertyName("cod_failed_amount")]
+        public int? CodFailedAmount { get; set; }
+
+        [JsonPropertyName("coupon")]
+        public string? Coupon { get; set; }
+
+        [JsonPropertyName("items")]
+        public List<GhnOrderItem>? Items { get; set; }
     }
 
     // ===== Response DTOs =====
