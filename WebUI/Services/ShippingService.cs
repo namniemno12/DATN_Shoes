@@ -39,20 +39,36 @@ namespace WebUI.Services
                     length = request.Length,
                     width = request.Width,
                     height = request.Height,
-                    insurance_value = request.InsuranceValue
+                    insurance_value = request.InsuranceValue,
+                    items = request.Items?.Select(i => new
+                    {
+                        name = i.Name,
+                        quantity = i.Quantity,
+                        price = i.Price
+                    }).ToList()
                 };
 
                 var response = await _httpClient.PostAsJsonAsync($"{apiBaseUrl}/api/shipping/calculate-fee", payload);
                 
+                var responseContent = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"[ShippingService] Response status: {response.StatusCode}");
+                Console.WriteLine($"[ShippingService] Response body: {responseContent}");
+                
                 if (response.IsSuccessStatusCode)
                 {
-                    var result = await response.Content.ReadFromJsonAsync<GhnFeeResponse>();
+                    // API Controller trả về trực tiếp GhnCalculateFeeResponse, không wrap trong GhnApiResponse
+                    var result = System.Text.Json.JsonSerializer.Deserialize<GhnFeeData>(
+                        responseContent,
+                        new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }
+                    );
+                    
+                    Console.WriteLine($"[ShippingService] ✅ Parsed total: {result?.Total}đ (service: {result?.ServiceFee}đ, insurance: {result?.InsuranceFee}đ)");
+                    
                     // GHN trả về số nguyên (VND), convert sang decimal
-                    return result?.Data?.Total != null ? (decimal)result.Data.Total : null;
+                    return result?.Total != null ? (decimal)result.Total : null;
                 }
                 
-                var errorContent = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"[ShippingService] Calculate fee error: {response.StatusCode} - {errorContent}");
+                Console.WriteLine($"[ShippingService] ❌ Calculate fee error: {response.StatusCode} - {responseContent}");
                 return null;
             }
             catch (Exception ex)
@@ -72,7 +88,8 @@ namespace WebUI.Services
             int length,
             int width,
             int height,
-            decimal subtotal)
+            decimal subtotal,
+            List<ShippingFeeItem>? items = null)
         {
             var result = new ShippingFeeResult();
 
@@ -89,29 +106,19 @@ namespace WebUI.Services
                     Length = length,
                     Width = width,
                     Height = height,
-                    InsuranceValue = (int)subtotal
+                    InsuranceValue = (int)subtotal,
+                    Items = items
                 };
 
+                Console.WriteLine($"[ShippingService] 📦 Calling Standard shipping (ServiceTypeId=2) with {items?.Count ?? 0} items");
                 result.StandardFee = await CalculateShippingFeeAsync(standardRequest) ?? 15000m;
 
-                // Tính phí ship hỏa tốc (ServiceTypeId = 53320)
-                var expressRequest = new ShippingFeeRequest
-                {
-                    ServiceTypeId = 53320,
-                    FromDistrictId = 1542,
-                    ToDistrictId = toDistrictId,
-                    ToWardCode = toWardCode,
-                    Weight = totalWeight,
-                    Length = length,
-                    Width = width,
-                    Height = height,
-                    InsuranceValue = (int)subtotal
-                };
-
-                result.ExpressFee = await CalculateShippingFeeAsync(expressRequest) ?? 25000m;
+                // Tính phí Express: Tạm thời dùng giá ước tính (thực tế cần gọi API get-service trước)
+                // Express thường cao hơn Standard khoảng 1.5-2 lần
+                result.ExpressFee = result.StandardFee * 1.5m;
                 result.Success = true;
 
-                Console.WriteLine($"[ShippingService] Calculated fees - Standard: {result.StandardFee:N0}đ, Express: {result.ExpressFee:N0}đ");
+                Console.WriteLine($"[ShippingService] Calculated fees - Standard: {result.StandardFee:N0}đ, Express: {result.ExpressFee:N0}đ (estimated)");
             }
             catch (Exception ex)
             {
@@ -158,7 +165,7 @@ namespace WebUI.Services
     /// </summary>
     public class ShippingFeeRequest
     {
-        public int ServiceTypeId { get; set; } // 2 = Standard, 53320 = Express
+        public int ServiceTypeId { get; set; } // 2 = Standard, 5 = Express
         public int FromDistrictId { get; set; }
         public int ToDistrictId { get; set; }
         public string ToWardCode { get; set; } = string.Empty;
@@ -167,6 +174,17 @@ namespace WebUI.Services
         public int Width { get; set; }
         public int Height { get; set; }
         public int InsuranceValue { get; set; }
+        public List<ShippingFeeItem>? Items { get; set; }
+    }
+
+    /// <summary>
+    /// Item trong đơn hàng để tính phí
+    /// </summary>
+    public class ShippingFeeItem
+    {
+        public string Name { get; set; } = string.Empty;
+        public int Quantity { get; set; }
+        public int Price { get; set; }
     }
 
     /// <summary>

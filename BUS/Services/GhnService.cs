@@ -14,31 +14,35 @@ namespace BUS.Services
     public class GhnService : IGhnService
     {
         private readonly HttpClient _httpClient;
-        private readonly GhnOptions _ghnOptions;
+        private readonly GhnOptions _ghnOptions;        // Production - Dùng cho get địa chỉ, tính phí
+        private readonly GhnOptions _ghnDevOptions;     // Dev - Dùng cho CreateOrder
         private readonly AppDbContext _context;
         private readonly ILogger<GhnService> _logger;
 
         public GhnService(
             HttpClient httpClient,
-            IOptions<GhnOptions> ghnOptions,
+            IOptionsSnapshot<GhnOptions> ghnOptionsSnapshot,
             AppDbContext context,
             ILogger<GhnService> logger)
         {
             _httpClient = httpClient;
-            _ghnOptions = ghnOptions.Value;
+            _ghnOptions = ghnOptionsSnapshot.Get("GHN");          // Production config
+            _ghnDevOptions = ghnOptionsSnapshot.Get("GHNDEV");    // Dev config
             _context = context;
             _logger = logger;
 
-            // Configure HttpClient base address and default headers
-            // Ensure BaseUrl ends with /
+            // Configure HttpClient với GHN Production (mặc định)
             var baseUrl = _ghnOptions.BaseUrl.TrimEnd('/') + "/";
             _httpClient.BaseAddress = new Uri(baseUrl);
             _httpClient.DefaultRequestHeaders.Clear();
             
-            // IMPORTANT: Đổi Token và ShopId khi deploy production
+            // Dùng Token và ShopId Production cho operations thông thường
             _httpClient.DefaultRequestHeaders.Add("Token", _ghnOptions.Token);
             _httpClient.DefaultRequestHeaders.Add("ShopId", _ghnOptions.ShopId);
             _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            
+            _logger.LogInformation("🔧 GhnService initialized - Production: {ProdUrl}, Dev: {DevUrl}", 
+                _ghnOptions.BaseUrl, _ghnDevOptions.BaseUrl);
         }
 
         /// <summary>
@@ -250,15 +254,20 @@ namespace BUS.Services
                 _logger.LogInformation("GHN Create Order Request for OrderID {OrderId}:\n{Request}", 
                     request.OrderId, requestJson);
                 
-                // Log full URL
-                var fullUrl = "https://dev-online-gateway.ghn.vn/shiip/public-api/v2/shipping-order/create";
-                _logger.LogInformation("🌐 Full GHN URL: {Url}", fullUrl);
-                _logger.LogInformation("🔑 Token: {Token}, ShopId: {ShopId}", 
-                    _ghnOptions.Token?.Substring(0, 10) + "...", 
-                    _ghnOptions.ShopId);
+                // Sử dụng GHN Dev endpoint cho CreateOrder
+                var fullUrl = $"{_ghnDevOptions.BaseUrl.TrimEnd('/')}/v2/shipping-order/create";
+                _logger.LogInformation("🌐 Full GHN Dev URL: {Url}", fullUrl);
+                _logger.LogInformation("🔑 Dev Token: {Token}, ShopId: {ShopId}", 
+                    _ghnDevOptions.Token?.Substring(0, 10) + "...", 
+                    _ghnDevOptions.ShopId);
 
-                // 4. Gọi GHN API trực tiếp với full URL
-                var response = await _httpClient.PostAsJsonAsync(fullUrl, payload);
+                // 4. Gọi GHN Dev API với credentials riêng
+                using var devRequest = new HttpRequestMessage(HttpMethod.Post, fullUrl);
+                devRequest.Headers.Add("Token", _ghnDevOptions.Token);
+                devRequest.Headers.Add("ShopId", _ghnDevOptions.ShopId);
+                devRequest.Content = JsonContent.Create(payload);
+                
+                var response = await _httpClient.SendAsync(devRequest);
                 var responseContent = await response.Content.ReadAsStringAsync();
                 
                 _logger.LogInformation("GHN Response Status: {StatusCode}, Body:\n{Response}", 
@@ -388,7 +397,7 @@ namespace BUS.Services
                 _logger.LogInformation("🔍 GHN CalculateFee Request:\n{Request}", requestJson);
 
                 // Sử dụng full URL như CreateOrder
-                var fullUrl = "https://dev-online-gateway.ghn.vn/shiip/public-api/v2/shipping-order/fee";
+                var fullUrl = "https://online-gateway.ghn.vn/shiip/public-api/v2/shipping-order/fee";
                 _logger.LogInformation("🌐 Full GHN Fee URL: {Url}", fullUrl);
 
                 var response = await _httpClient.PostAsJsonAsync(fullUrl, request);
@@ -779,8 +788,8 @@ namespace BUS.Services
                 _logger.LogInformation("🔑 Using Token: {Token}", _ghnOptions.Token);
 
                 // Tạo request message với token header
-                var request = new HttpRequestMessage(HttpMethod.Get, 
-                    "https://dev-online-gateway.ghn.vn/shiip/public-api/master-data/province");
+                var request = new HttpRequestMessage(HttpMethod.Get,
+                    "https://online-gateway.ghn.vn/shiip/public-api/master-data/province");
                 
                 // Clear any existing Token header và add mới
                 request.Headers.Remove("Token");
@@ -828,8 +837,8 @@ namespace BUS.Services
                 var payload = new { province_id = provinceId };
                 
                 // Tạo request message với token header
-                var request = new HttpRequestMessage(HttpMethod.Post, 
-                    "https://dev-online-gateway.ghn.vn/shiip/public-api/master-data/district")
+                var request = new HttpRequestMessage(HttpMethod.Post,
+                    "https://online-gateway.ghn.vn/shiip/public-api/master-data/district")
                 {
                     Content = JsonContent.Create(payload)
                 };
@@ -873,8 +882,8 @@ namespace BUS.Services
                 var payload = new { district_id = districtId };
                 
                 // Tạo request message với token header
-                var request = new HttpRequestMessage(HttpMethod.Post, 
-                    "https://dev-online-gateway.ghn.vn/shiip/public-api/master-data/ward")
+                var request = new HttpRequestMessage(HttpMethod.Post,
+                    "https://online-gateway.ghn.vn/shiip/public-api/master-data/ward")
                 {
                     Content = JsonContent.Create(payload)
                 };

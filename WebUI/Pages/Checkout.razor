@@ -329,6 +329,22 @@
                             }
                         </div>
                     }
+                    
+                    <!-- Insurance Option -->
+                    <div style="margin-top: 16px; padding: 16px; background: #f0f9ff; border-radius: 8px; border: 1px solid #bfdbfe;">
+                        <label style="display: flex; align-items: start; gap: 12px; cursor: pointer;">
+                            <input type="checkbox" @bind="EnableInsurance" @bind:after="OnInsuranceChanged" style="margin-top: 4px; width: 18px; height: 18px; cursor: pointer;" />
+                            <div style="flex: 1;">
+                                <div style="font-weight: 600; color: #1e40af; margin-bottom: 4px;">
+                                    <i class="fas fa-shield-alt"></i> Bảo hiểm hàng hóa
+                                </div>
+                                <div style="font-size: 13px; color: #64748b; line-height: 1.5;">
+                                    Bảo vệ đơn hàng trị giá <strong>@Subtotal.ToString("N0")đ</strong> trong quá trình vận chuyển. 
+                                    Được đền bù 100% nếu hàng bị mất hoặc hư hỏng.
+                                </div>
+                            </div>
+                        </label>
+                    </div>
                 </div>
 
                 <div class="order-items-card">
@@ -497,6 +513,7 @@
     private decimal CalculatedExpressShippingFee = 0m;
     private bool IsCalculatingShippingFee = false;
     private bool ShippingFeeCalculationError = false;
+    private bool EnableInsurance = true; // Mặc định bật bảo hiểm
     
     private decimal Subtotal =>
         (SelectedApiItems?.Sum(x => x.TotalPrice) ?? 0) +
@@ -709,8 +726,41 @@
             int totalWeight = WebUI.Services.ShippingService.EstimatePackageWeight(totalQuantity);
             var (length, width, height) = WebUI.Services.ShippingService.EstimatePackageDimensions(totalQuantity);
             
+            // Tạo danh sách items để gửi lên GHN
+            var items = new List<WebUI.Services.ShippingFeeItem>();
+            
+            // Thêm items từ API cart
+            if (SelectedApiItems != null)
+            {
+                foreach (var item in SelectedApiItems)
+                {
+                    items.Add(new WebUI.Services.ShippingFeeItem
+                    {
+                        Name = $"{item.ProductName} ({item.Size}, {item.Color})",
+                        Quantity = item.Quantity,
+                        Price = (int)item.Price
+                    });
+                }
+            }
+            
+            // Thêm items từ Local cart
+            if (SelectedLocalItems != null)
+            {
+                foreach (var item in SelectedLocalItems)
+                {
+                    items.Add(new WebUI.Services.ShippingFeeItem
+                    {
+                        Name = $"{item.Product.Name} ({item.SelectedSize}, {item.SelectedColor})",
+                        Quantity = item.Quantity,
+                        Price = (int)item.Product.Price
+                    });
+                }
+            }
+            
             Console.WriteLine($"[Checkout] Calculating fees for: Quantity={totalQuantity}, Weight={totalWeight}g, Dimensions={length}x{width}x{height}cm");
             Console.WriteLine($"[Checkout] Destination: DistrictId={SelectedDistrictId}, WardCode={SelectedWardCode}");
+            Console.WriteLine($"[Checkout] Items count: {items.Count}");
+            Console.WriteLine($"[Checkout] Insurance enabled: {EnableInsurance}");
             
             // Use ShippingService to calculate both fees
             var result = await ShippingService.CalculateBothShippingFeesAsync(
@@ -720,7 +770,8 @@
                 length,
                 width,
                 height,
-                Subtotal
+                EnableInsurance ? Subtotal : 0m, // Chỉ truyền insurance_value khi bật bảo hiểm
+                items
             );
             
             CalculatedStandardShippingFee = result.StandardFee;
@@ -744,6 +795,13 @@
             IsCalculatingShippingFee = false;
             StateHasChanged();
         }
+    }
+    
+    private async Task OnInsuranceChanged()
+    {
+        Console.WriteLine($"[Checkout] Insurance changed to: {EnableInsurance}");
+        // Tính lại phí ship với/không bảo hiểm
+        await CalculateShippingFees();
     }
     
     private async Task LoadProvinces()

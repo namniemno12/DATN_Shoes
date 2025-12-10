@@ -86,8 +86,13 @@ builder.Services.AddScoped<AddressRepository>();
 
 // Register Services
 builder.Services.AddScoped<AddressService>();
-// GHN Service Configuration
-builder.Services.Configure<DAL.DTOs.Shipping.GhnOptions>(builder.Configuration.GetSection("GHN"));
+
+// GHN Service Configuration - 2 environments
+// GHN Production: Dùng cho get địa chỉ, tính phí ship
+builder.Services.Configure<DAL.DTOs.Shipping.GhnOptions>("GHN", builder.Configuration.GetSection("GHN"));
+// GHN Dev: Dùng cho CreateOrder
+builder.Services.Configure<DAL.DTOs.Shipping.GhnOptions>("GHNDEV", builder.Configuration.GetSection("GHNDEV"));
+
 builder.Services.AddHttpClient<BUS.Services.Interfaces.IGhnService, BUS.Services.GhnService>();
 
 builder.Services.AddScoped<UserRepository>();
