@@ -271,13 +271,6 @@
                         <span class="summary-label">Phí vận chuyển</span>
                         <span class="summary-value">@ShippingFee.ToString("N0")đ</span>
                     </div>
-                    @if (SelectedPaymentMethod == "cod")
-                    {
-                        <div class="summary-row">
-                            <span class="summary-label">Phí thu hộ COD</span>
-                            <span class="summary-value">15.000đ</span>
-                        </div>
-                    }
                     @if (Discount > 0)
                     {
                         <div class="summary-row discount">
@@ -613,10 +606,6 @@
     private decimal GetFinalTotalAmount()
     {
         decimal total = SubTotal + ShippingFee - Discount;
-        if (SelectedPaymentMethod == "cod")
-        {
-            total += 15000; // COD fee
-        }
         return total;
     }
 
