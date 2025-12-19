@@ -4,7 +4,7 @@
     {
         public int ProductID { get; set; }
         public string ProductName { get; set; }
-        public string imageUrl { get; set; }
+        public string ImageUrl { get; set; }
         public string GendersName { get; set; }
         public string BrandName { get; set; }
         public decimal ImportPrice { get; set; }

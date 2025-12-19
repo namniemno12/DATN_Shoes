@@ -252,8 +252,9 @@ namespace BUS.Services
                 }).ToList();
 
                 decimal subtotal = items.Sum(i => i.Subtotal);
-                decimal shippingFee = 30000; // Default shipping fee
-                decimal discount = order.Voucher?.DiscountValue ?? 0;
+                decimal shippingFee = order.ShippingFee; // Use stored shipping fee
+                // Lấy discount từ order.DiscountAmount (đã lưu khi create order)
+                decimal discount = order.DiscountAmount;
 
                 var detail = new AdminOrderDetail
                 {
@@ -302,7 +303,6 @@ namespace BUS.Services
                         // GHN Integration
                         GhnOrderCode = order.GhnOrderCode,
                         GhnStatus = order.GhnStatus,
-                        GhnFee = order.GhnFee,
                         CodCollected = order.CodCollected,
                         GhnCreatedAt = order.GhnCreatedAt,
                         GhnUpdatedAt = order.GhnUpdatedAt
@@ -392,7 +392,10 @@ namespace BUS.Services
                             {
                                 order.GhnOrderCode = ghnResult.GhnOrderCode;
                                 order.GhnStatus = "ready_to_pick";
-                                order.GhnFee = ghnResult.TotalFee;
+                                if (ghnResult.TotalFee.HasValue)
+                                {
+                                    order.ShippingFee = ghnResult.TotalFee.Value;
+                                }
                                 order.GhnCreatedAt = DateTime.Now;
                                 
                                 Console.WriteLine($"✅ Đã cập nhật Order với GhnOrderCode: {ghnResult.GhnOrderCode}");

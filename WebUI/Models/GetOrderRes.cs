@@ -74,9 +74,6 @@ namespace WebUI.Models
         [JsonPropertyName("ghnStatus")]
         public string? GhnStatus { get; set; }
 
-        [JsonPropertyName("ghnFee")]
-        public int? GhnFee { get; set; }
-
         [JsonPropertyName("codCollected")]
         public bool CodCollected { get; set; }
 

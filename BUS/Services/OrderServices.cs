@@ -60,7 +60,7 @@ namespace BUS.Services
             var ordersPage = await _orderRepository.AsQueryable()
                 .Where(o => o.UserID == userId)
                 .OrderByDescending(o => o.OrderDate)
-                .Skip((CurrentPage -1) * RecordPerPage)
+                .Skip((CurrentPage - 1) * RecordPerPage)
                 .Take(RecordPerPage)
                 .ToListAsync();
 
@@ -101,7 +101,7 @@ namespace BUS.Services
                 .ToListAsync();
 
             var voucherIds = ordersPage.Where(o => o.VoucherID.HasValue).Select(o => o.VoucherID.Value).Distinct().ToList();
-            var vouchers = voucherIds.Count >0
+            var vouchers = voucherIds.Count > 0
                 ? await _voucherRepository.AsQueryable().Where(v => voucherIds.Contains(v.VoucherID)).ToListAsync()
                 : new List<Voucher>();
 
@@ -123,7 +123,8 @@ namespace BUS.Services
                 ? await _shipmentRepository.AsQueryable().Where(s => shipmentIds.Contains(s.ShipmentID)).ToListAsync()
                 : new List<Shipment>();
 
-            var data = ordersPage.Select(o => {
+            var data = ordersPage.Select(o =>
+            {
                 var user = users.FirstOrDefault(u => u.UserID == o.UserID);
                 var address = addresses.FirstOrDefault(a => a.UserID == o.UserID);
                 var voucher = o.VoucherID.HasValue ? vouchers.FirstOrDefault(v => v.VoucherID == o.VoucherID.Value) : null;
@@ -132,13 +133,17 @@ namespace BUS.Services
                 var shipment = o.ShipmentID.HasValue ? shipments.FirstOrDefault(s => s.ShipmentID == o.ShipmentID.Value) : null;
 
                 var orderItems = orderDetails.Where(od => od.OrderID == o.OrderID).ToList();
-                decimal subTotal = orderItems.Sum(od => {
-                    var variant = variants.FirstOrDefault(v => v.VariantID == od.VariantID);
-                    return (variant?.SellingPrice ?? 0) * od.Quantity;
+
+                // ✅ Sửa: Dùng UnitPrice từ OrderDetail (đã snapshot) thay vì tính lại
+                decimal subTotal = orderItems.Sum(od =>
+                {
+                    return od.UnitPrice * od.Quantity;
                 });
 
-                decimal shippingFee = 30000;
-                decimal discount = voucher?.DiscountValue ?? 0;
+                // ✅ FIX: Đọc ShippingFee từ order đã lưu trong DB
+                decimal shippingFee = o.ShippingFee;
+                // Lấy discount từ order.DiscountAmount (đã lưu khi create order)
+                decimal discount = o.DiscountAmount;
 
                 int paymentMethodInt = payment != null ? GetPaymentMethodInt(payment.PaymentMethod) : (int)PaymentMethodEnums.COD;
 
@@ -163,7 +168,8 @@ namespace BUS.Services
                     TotalAmount = o.TotalAmount,
                     CreatedAt = o.OrderDate,
                     Note = o.Note,
-                    Items = orderItems.Select(od => {
+                    Items = orderItems.Select(od =>
+                    {
                         var variant = variants.FirstOrDefault(v => v.VariantID == od.VariantID);
                         var product = products.FirstOrDefault(p => p.ProductID == variant?.ProductID);
                         var brand = brands.FirstOrDefault(b => b.BrandID == product?.BrandId);
@@ -234,6 +240,18 @@ namespace BUS.Services
             };
         }
 
+        private string GetPaymentStatusText(int status)
+        {
+            return status switch
+            {
+                0 => "Chưa thanh toán",
+                1 => "Đã thanh toán",
+                2 => "Đã hoàn tiền",
+                3 => "Thanh toán thất bại",
+                _ => "Chưa thanh toán"
+            };
+        }
+
         private int GetPaymentMethodInt(string paymentMethod)
         {
             if (string.IsNullOrEmpty(paymentMethod))
@@ -256,7 +274,6 @@ namespace BUS.Services
             try
             {
                 Console.WriteLine($"[OrderServices.CreateOrder] Starting order creation - UserID={req.UserID}, OrderDetails count={req.OrderDetails?.Count ?? 0}");
-                
                 if (req.OrderDetails != null && req.OrderDetails.Any())
                 {
                     foreach (var item in req.OrderDetails)
@@ -264,7 +281,6 @@ namespace BUS.Services
                         Console.WriteLine($"[OrderServices.CreateOrder] Request OrderDetail: VariantID={item.VariantID}, Qty={item.Quantity}");
                     }
                 }
-                
                 int orderId = 0;
                 await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
@@ -284,17 +300,13 @@ namespace BUS.Services
                         GhnWardCode = req.GhnWardCode,
                         GhnFullAddress = req.GhnFullAddress
                     };
-
                     await _orderRepository.AddAsync(order);
                     await _orderRepository.SaveChangesAsync();
-
                     decimal totalAmount = 0;
                     var orderDetails = new List<OrderDetail>();
-
                     foreach (var item in req.OrderDetails)
                     {
                         ProductVariant? variant = null;
-                        
                         // Tìm variant theo VariantID (user đã login)
                         if (item.VariantID > 0)
                         {
@@ -303,39 +315,32 @@ namespace BUS.Services
                                 .Include(v => v.Color)
                                 .Include(v => v.Size)
                                 .FirstOrDefaultAsync(v => v.VariantID == item.VariantID);
-                                
                             Console.WriteLine($"[CreateOrder] Looking for VariantID={item.VariantID}, Found={variant != null}");
                         }
                         // Tìm variant theo ProductID + Color + Size (guest user)
                         else if (item.ProductID.HasValue && !string.IsNullOrEmpty(item.SelectedColor) && !string.IsNullOrEmpty(item.SelectedSize))
                         {
                             variant = await (from v in _variantRepository.AsQueryable()
-                                           join c in _colorRepository.AsQueryable() on v.ColorID equals c.ColorID
-                                           join s in _sizeRepository.AsQueryable() on v.SizeID equals s.SizeID
-                                           where v.ProductID == item.ProductID.Value &&
-                                                 (c.HexCode == item.SelectedColor || c.Name == item.SelectedColor) &&
-                                                 s.Value == item.SelectedSize
-                                           select v)
+                                             join c in _colorRepository.AsQueryable() on v.ColorID equals c.ColorID
+                                             join s in _sizeRepository.AsQueryable() on v.SizeID equals s.SizeID
+                                             where v.ProductID == item.ProductID.Value &&
+                                                   (c.HexCode == item.SelectedColor || c.Name == item.SelectedColor) &&
+                                                   s.Value == item.SelectedSize
+                                             select v)
                                 .Include(v => v.Product)
                                 .Include(v => v.Color)
                                 .Include(v => v.Size)
                                 .FirstOrDefaultAsync();
-                                
                             Console.WriteLine($"[CreateOrder] Looking for ProductID={item.ProductID}, Color={item.SelectedColor}, Size={item.SelectedSize}, Found={variant != null}");
                         }
-
                         if (variant == null)
                             throw new Exception($"Không tìm thấy sản phẩm với thông tin: VariantID={item.VariantID}, ProductID={item.ProductID}, Color={item.SelectedColor}, Size={item.SelectedSize}");
-
                         if (variant.StockQuantity < item.Quantity)
                             throw new Exception($"Sản phẩm {variant.VariantID} không đủ hàng.");
-
                         // LOG: Debug thông tin variant
                         Console.WriteLine($"[CreateOrder] VariantID: {variant.VariantID}, Product: {variant.Product?.Name}, Color: {variant.Color?.Name}, Size: {variant.Size?.Value}, Price: {variant.SellingPrice}, Qty: {item.Quantity}");
-
                         variant.StockQuantity -= item.Quantity;
                         await _variantRepository.UpdateAsync(variant);
-
                         orderDetails.Add(new OrderDetail
                         {
                             OrderID = order.OrderID,
@@ -343,41 +348,102 @@ namespace BUS.Services
                             Quantity = item.Quantity,
                             UnitPrice = variant.SellingPrice // Snapshot giá tại thời điểm đặt hàng
                         });
-
                         totalAmount += variant.SellingPrice * item.Quantity;
                     }
-
                     await _orderDetailRepository.AddRangeAsync(orderDetails);
+                    // --- Áp dụng voucher nếu có ---
+                    decimal discount = 0;
+                    if (req.VoucherID.HasValue && req.VoucherID.Value > 0)
+                    {
+                        var voucher = await _voucherRepository.AsQueryable().FirstOrDefaultAsync(v => v.VoucherID == req.VoucherID.Value);
+                        if (voucher != null)
+                        {
+                            Console.WriteLine($"[CreateOrder] Voucher found: Code={voucher.VoucherCode}");
+                            Console.WriteLine($"  DiscountType: '{voucher.DiscountType}'");
+                            Console.WriteLine($"  DiscountValue: {voucher.DiscountValue}");
+                            Console.WriteLine($"  MaxDiscountAmount: {voucher.MaxDiscountAmount}");
+                            Console.WriteLine($"  MinOrderAmount: {voucher.MinOrderAmount}");
+                            Console.WriteLine($"  Subtotal (items only): {totalAmount}");
 
-                    order.TotalAmount = totalAmount;
+                            // ⚠️ FIX: Kiểm tra MinOrderAmount với SUBTOTAL (chỉ giá trị sản phẩm)
+                            // Frontend đã validate với Subtotal + ShippingFee rồi
+                            if (voucher.MinOrderAmount.HasValue && totalAmount < voucher.MinOrderAmount.Value)
+                            {
+                                throw new Exception($"Đơn hàng không đủ điều kiện áp dụng voucher này. Yêu cầu tối thiểu: {voucher.MinOrderAmount.Value:N0}đ");
+                            }
+
+                            string discountType = (voucher.DiscountType ?? "").Trim();
+                            
+                            // ✅ FIX: Tính discount CHỈ dựa trên SUBTOTAL (giá trị sản phẩm)
+                            // KHÔNG tính trên phí ship
+                            if (discountType.Equals("Percentage", StringComparison.OrdinalIgnoreCase))
+                            {
+                                discount = totalAmount * voucher.DiscountValue / 100m;
+                                Console.WriteLine($"[CreateOrder] Percentage discount: {totalAmount} * {voucher.DiscountValue}% = {discount}");
+                            }
+                            else if (discountType.Equals("FixedAmount", StringComparison.OrdinalIgnoreCase))
+                            {
+                                discount = voucher.DiscountValue;
+                                Console.WriteLine($"[CreateOrder] Fixed discount: {discount}");
+                            }
+                            else
+                            {
+                                // Fallback: coi như FixedAmount
+                                discount = voucher.DiscountValue;
+                                Console.WriteLine($"[CreateOrder] Unknown discount type, using as fixed: {discount}");
+                            }
+
+                            // Áp dụng giới hạn MaxDiscountAmount nếu có
+                            if (voucher.MaxDiscountAmount.HasValue && discount > voucher.MaxDiscountAmount.Value)
+                            {
+                                Console.WriteLine($"[CreateOrder] Discount capped: {discount} -> {voucher.MaxDiscountAmount.Value}");
+                                discount = voucher.MaxDiscountAmount.Value;
+                            }
+
+                            // Đảm bảo discount không vượt quá subtotal
+                            if (discount > totalAmount)
+                            {
+                                Console.WriteLine($"[CreateOrder] Discount exceeds subtotal: {discount} -> {totalAmount}");
+                                discount = totalAmount;
+                            }
+                            
+                            Console.WriteLine($"[CreateOrder] Final discount: {discount}");
+                        }
+                    }
+
+                    // ✅ FIX: TotalAmount = Subtotal - Discount + ShippingFee
+                    order.ShippingFee = req.ShippingFee;
+                    order.DiscountAmount = discount;
+                    order.TotalAmount = totalAmount - discount + req.ShippingFee;
+                    
+                    Console.WriteLine($"[CreateOrder] Subtotal: {totalAmount}");
+                    Console.WriteLine($"[CreateOrder] Discount: {discount}");
+                    Console.WriteLine($"[CreateOrder] ShippingFee: {req.ShippingFee}");
+                    Console.WriteLine($"[CreateOrder] TotalAmount: {order.TotalAmount}");
+
                     await _orderRepository.UpdateAsync(order);
-
                     if (req.PaymentID.HasValue && req.PaymentID.Value > 0)
                     {
                         var payment = await _paymentRepository.AsQueryable()
                             .FirstOrDefaultAsync(p => p.PaymentID == req.PaymentID.Value);
                         if (payment == null)
                             throw new Exception($"PaymentID {req.PaymentID.Value} không tồn tại.");
-
                         var orderPayment = new OrderPayment
                         {
                             OrderID = order.OrderID,
                             PaymentID = payment.PaymentID,
-                            Amount = totalAmount,
+                            Amount = order.TotalAmount, // Đã trừ giảm giá
                             Status = (int)PaymentStatus.Unpaid,
                             Note = null
                         };
                         await _orderPaymentRepository.AddAsync(orderPayment);
                     }
-
                     await _variantRepository.SaveChangesAsync();
                     await _orderDetailRepository.SaveChangesAsync();
                     await _orderRepository.SaveChangesAsync();
                     await _orderPaymentRepository.SaveChangesAsync();
-
                     orderId = order.OrderID;
                 });
-
                 return new CommonResponse<int>
                 {
                     Success = true,
@@ -449,61 +515,100 @@ namespace BUS.Services
         {
             try
             {
-                var query = from o in _orderRepository.Entities
-                            join u in _userRepository.Entities on o.UserID equals u.UserID
-                            join s in _shipmentRepository.Entities on o.ShipmentID equals s.ShipmentID into sh
-                            from shipment in sh.DefaultIfEmpty()
-                            join a in _addressRepository.Entities on o.UserID equals a.UserID into ad
-                            from address in ad.DefaultIfEmpty()
-                            join od in _orderDetailRepository.Entities on o.OrderID equals od.OrderID
-                            join pv in _variantRepository.Entities on od.VariantID equals pv.VariantID
-                            where o.OrderID == OrderID
-                            select new { o, u, shipment, address, od, pv };
+                // Get order first
+                var order = await _orderRepository.AsQueryable()
+                    .Include(o => o.User)
+                    .Include(o => o.Shipment)
+                    .Include(o => o.Voucher)
+                    .FirstOrDefaultAsync(o => o.OrderID == OrderID);
 
-                var data = await query.ToListAsync();
-
-                if (!data.Any())
+                if (order == null)
                     return new CommonResponse<GetOrderDetailRes> { Success = false, Message = "Order not found" };
 
-                var first = data.First();
-                
-                // L?y payment method t? OrderPayment n?u có
-                var paymentMethod = await (from op in _orderRepository.DbContext.Set<OrderPayment>()
-                                           join p in _orderRepository.DbContext.Set<Payment>() on op.PaymentID equals p.PaymentID
-                                           where op.OrderID == OrderID
-                                           select p.PaymentMethod)
-                                           .FirstOrDefaultAsync();
+                // Get order details
+                var orderDetails = await _orderDetailRepository.AsQueryable()
+                    .Where(od => od.OrderID == OrderID)
+                    .ToListAsync();
+
+                // Get variant IDs
+                var variantIds = orderDetails.Select(od => od.VariantID).Distinct().ToList();
+
+                // Load variants with all relations
+                var variants = await _variantRepository.AsQueryable()
+                    .Include(v => v.Product)
+                    .ThenInclude(p => p.Brand)
+                    .Include(v => v.Product)
+                    .ThenInclude(p => p.Gender)
+                    .Include(v => v.Size)
+                    .Where(v => variantIds.Contains(v.VariantID))
+                    .ToListAsync();
+
+                // Get address
+                var address = order.UserID.HasValue
+                    ? await _addressRepository.AsQueryable()
+                        .FirstOrDefaultAsync(a => a.UserID == order.UserID.Value)
+                    : null;
+
+                // Get payment info
+                var paymentInfo = await (from op in _orderRepository.DbContext.Set<OrderPayment>()
+                                         join p in _orderRepository.DbContext.Set<Payment>() on op.PaymentID equals p.PaymentID
+                                         where op.OrderID == OrderID
+                                         select new { p.PaymentMethod, op.Status }).FirstOrDefaultAsync();
+
+                var paymentStatus = paymentInfo?.Status ?? 0;
+
+                // Map order details to products
+                var distinctProducts = orderDetails.GroupBy(od => od.OrderDetailID)
+                    .Select(g =>
+                    {
+                        var od = g.First();
+                        var variant = variants.FirstOrDefault(v => v.VariantID == od.VariantID);
+                        var product = variant?.Product;
+                        var brandName = product?.Brand?.Name ?? string.Empty;
+                        var genderName = product?.Gender?.Name ?? string.Empty;
+                        var sizeValue = variant?.Size?.Value ?? string.Empty;
+                        var imageUrl = product?.ImageUrl ?? string.Empty;
+
+                        return new GetProductDetailRes
+                        {
+                            ProductID = product?.ProductID ?? 0,
+                            ProductName = product?.Name ?? string.Empty,
+                            ImageUrl = imageUrl,
+                            GendersName = genderName,
+                            BrandName = brandName,
+                            ImportPrice = variant?.ImportPrice ?? 0,
+                            SellingPrice = od.UnitPrice,
+                            Quantity = od.Quantity,
+                            Value = sizeValue
+                        };
+                    }).ToList();
+
+                var subtotal = orderDetails.Sum(od => od.Quantity * od.UnitPrice);
 
                 var orderRes = new GetOrderDetailRes
                 {
-                    OrderID = first.o.OrderID,
-                    OrderCode = first.o.OrderCode,
-                    UserName = first.u.Username,
-                    FullName = first.u.FullName,
-                    PhoneNumber = first.u.Phone,
-                    PaymentMethod = paymentMethod ?? "Chua thanh toán",
-                    ShippingProvider = first.shipment?.ShippingProvider,
-                    TrackingNumber = first.shipment?.TrackingNumber,
-                    ShippedDate = first.shipment?.ShippedDate,
-                    VoucherCode = first.o.Voucher != null ? first.o.Voucher.VoucherCode : string.Empty,
-                    OrderType = first.o.OrderType,
-                    OrderDate = first.o.OrderDate,
-                    Status = first.o.Status,
-                    TotalAmount = first.o.TotalAmount,
-                    Address = first.address != null ? $"{first.address.Street}, {first.address.Ward}, {first.address.City}" : null,
-                    Note = first.o.Note,
-                    ListProduct = data.Select(d => new GetProductDetailRes
-                    {
-                        ProductID = d.pv.Product.ProductID,
-                        ProductName = d.pv.Product.Name,
-                        imageUrl = d.pv.Product.ImageUrl,
-                        GendersName = d.pv.Product.Gender.Name,
-                        BrandName = d.pv.Product.Brand.Name,
-                        ImportPrice = d.pv.ImportPrice,
-                        SellingPrice = d.pv.SellingPrice,
-                        Quantity = d.od.Quantity,
-                        Value = d.pv.Size != null ? d.pv.Size.Value : ""
-                    }).ToList()
+                    OrderID = order.OrderID,
+                    OrderCode = order.OrderCode,
+                    UserName = order.User?.Username ?? string.Empty,
+                    FullName = order.User?.FullName ?? string.Empty,
+                    PhoneNumber = order.User?.Phone ?? string.Empty,
+                    PaymentMethod = paymentInfo?.PaymentMethod ?? "Chưa thanh toán",
+                    PaymentStatus = paymentStatus,
+                    PaymentStatusText = GetPaymentStatusText(paymentStatus),
+                    ShippingProvider = order.Shipment?.ShippingProvider,
+                    TrackingNumber = order.Shipment?.TrackingNumber,
+                    ShippedDate = order.Shipment?.ShippedDate,
+                    VoucherCode = order.Voucher?.VoucherCode ?? string.Empty,
+                    OrderType = order.OrderType,
+                    OrderDate = order.OrderDate,
+                    Status = order.Status,
+                    Subtotal = subtotal,
+                    ShippingFee = order.ShippingFee,
+                    Discount = order.DiscountAmount,
+                    TotalAmount = order.TotalAmount,
+                    Address = address != null ? $"{address.Street}, {address.Ward}, {address.City}" : null,
+                    Note = order.Note,
+                    ListProduct = distinctProducts
                 };
 
                 return new CommonResponse<GetOrderDetailRes> { Success = true, Data = orderRes };
@@ -569,9 +674,9 @@ namespace BUS.Services
                         // Cập nhật trạng thái thanh toán thành Refunded
                         orderPayment.Status = (int)PaymentStatus.Refunded;
                         orderPayment.Note = $"Đã hoàn tiền do hủy đơn hàng lúc {DateTime.Now:dd/MM/yyyy HH:mm:ss}";
-                        
+
                         await _orderPaymentRepository.UpdateAsync(orderPayment);
-                        
+
                         // TODO: Tích hợp API hoàn tiền thực tế cho VNPay/PayPal/GPay tại đây
                         // Ví dụ: await _paymentService.ProcessRefundAsync(orderPayment);
                     }
@@ -607,31 +712,31 @@ namespace BUS.Services
                     .FirstOrDefaultAsync(o => o.OrderID == req.OrderID);
 
                 if (order == null)
-                    return new CommonResponse<DAL.DTOs.Orders.Res.ConfirmOrderResponse> 
-                    { 
-                        Success = false, 
-                        Message = "Không tìm thấy đơn hàng", 
-                        Data = null 
+                    return new CommonResponse<DAL.DTOs.Orders.Res.ConfirmOrderResponse>
+                    {
+                        Success = false,
+                        Message = "Không tìm thấy đơn hàng",
+                        Data = null
                     };
 
                 if (order.Status != (int)OrderStatusEnums.Pending)
-                    return new CommonResponse<DAL.DTOs.Orders.Res.ConfirmOrderResponse> 
-                    { 
-                        Success = false, 
-                        Message = "Đơn hàng không ở trạng thái chờ xác nhận", 
-                        Data = null 
+                    return new CommonResponse<DAL.DTOs.Orders.Res.ConfirmOrderResponse>
+                    {
+                        Success = false,
+                        Message = "Đơn hàng không ở trạng thái chờ xác nhận",
+                        Data = null
                     };
 
                 await _unitOfWork.ExecuteInTransactionAsync(async () =>
                 {
                     // Cập nhật trạng thái đơn hàng
                     order.Status = (int)OrderStatusEnums.Confirmed;
-                    
+
                     // Thêm ghi chú nếu có
                     if (!string.IsNullOrEmpty(req.Note))
                     {
-                        order.Note = string.IsNullOrEmpty(order.Note) 
-                            ? $"[{DateTime.Now:dd/MM/yyyy HH:mm}] {req.Note}" 
+                        order.Note = string.IsNullOrEmpty(order.Note)
+                            ? $"[{DateTime.Now:dd/MM/yyyy HH:mm}] {req.Note}"
                             : $"{order.Note}\n[{DateTime.Now:dd/MM/yyyy HH:mm}] {req.Note}";
                     }
 
@@ -641,7 +746,7 @@ namespace BUS.Services
                         // Cập nhật shipment hiện tại
                         shipment = await _shipmentRepository.AsQueryable()
                             .FirstOrDefaultAsync(s => s.ShipmentID == order.ShipmentID.Value);
-                        
+
                         if (shipment != null)
                         {
                             shipment.ShippingProvider = req.ShippingProvider ?? shipment.ShippingProvider;
@@ -885,7 +990,7 @@ namespace BUS.Services
                     {
                         var variant = variants.FirstOrDefault(v => v.VariantID == g.Key);
                         var product = products.FirstOrDefault(p => p.ProductID == variant.ProductID);
-                        
+
                         return new
                         {
                             ProductID = product?.ProductID ?? 0,
@@ -918,7 +1023,7 @@ namespace BUS.Services
 
                 // Get all customer IDs who have placed orders
                 var customerIdsWithOrders = orders.Select(o => o.UserID).Distinct().ToList();
-                
+
                 // Group by date to calculate daily customer growth
                 var dailyStats = new List<CustomerGrowthInfo>();
                 var currentDate = fromDate.Value.Date;
@@ -930,15 +1035,15 @@ namespace BUS.Services
                 {
                     // New customers registered on this date
                     var newCustomersOnDate = allUsers.Count(u => u.CreatedAt.Date == currentDate);
-                    
+
                     // Returning customers (placed order on this date but registered before)
                     var ordersOnDate = orders.Where(o => o.OrderDate.Date == currentDate).ToList();
                     var customersOrderedOnDate = ordersOnDate.Select(o => o.UserID).Distinct().ToList();
                     var returningCustomers = customersOrderedOnDate
                         .Count(cId => cId.HasValue && allUsers.All(u => u.UserID != cId.Value || u.CreatedAt.Date < currentDate));
-                    
+
                     cumulativeCustomers += newCustomersOnDate;
-                    
+
                     dailyStats.Add(new CustomerGrowthInfo
                     {
                         Date = currentDate,
@@ -946,7 +1051,7 @@ namespace BUS.Services
                         ReturningCustomers = returningCustomers,
                         TotalCustomers = cumulativeCustomers
                     });
-                    
+
                     currentDate = currentDate.AddDays(1);
                 }
 

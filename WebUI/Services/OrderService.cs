@@ -14,6 +14,7 @@ namespace WebUI.Services
         Task<CommonResponse<bool>> UpdatePaymentStatusAsync(int orderId, PaymentStatus status);
         Task<CommonPagination<GetOrderRes>> GetListOrderByUserAsync(int currentPage, int recordPerPage);
         Task<CommonResponse<bool>> UpdateOrderStatusAsync(int orderId, int status);
+        Task<CommonResponse<GetOrderDetailRes>> GetOrderDetailAsync(int orderId);
     }
 
     public class OrderService : IOrderService
@@ -331,6 +332,63 @@ namespace WebUI.Services
                 {
                     Success = false,
                     Message = $"Lỗi khi cập nhật trạng thái: {ex.Message}"
+                };
+            }
+        }
+
+        public async Task<CommonResponse<GetOrderDetailRes>> GetOrderDetailAsync(int orderId)
+        {
+            try
+            {
+                if (!_authService.IsAuthenticated)
+                {
+                    return new CommonResponse<GetOrderDetailRes>
+                    {
+                        Success = false,
+                        Message = "User not authenticated",
+                        Data = null
+                    };
+                }
+
+                var apiBaseUrl = await _configService.GetApiBaseUrlAsync();
+                var url = $"{apiBaseUrl}/api/Orders/GetOrderDetail?orderId={orderId}";
+                var httpRequest = new HttpRequestMessage(HttpMethod.Get, url);
+
+                httpRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(
+                    "Bearer",
+                    _authService.CurrentToken!
+                );
+
+                var response = await _httpClient.SendAsync(httpRequest);
+                var body = await response.Content.ReadAsStringAsync();
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var result = JsonSerializer.Deserialize<CommonResponse<GetOrderDetailRes>>(body,
+                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                    return result ?? new CommonResponse<GetOrderDetailRes>
+                    {
+                        Success = false,
+                        Message = "Không nhận được phản hồi từ API",
+                        Data = null
+                    };
+                }
+
+                return new CommonResponse<GetOrderDetailRes>
+                {
+                    Success = false,
+                    Message = $"API returned {response.StatusCode}: {body}",
+                    Data = null
+                };
+            }
+            catch (Exception ex)
+            {
+                return new CommonResponse<GetOrderDetailRes>
+                {
+                    Success = false,
+                    Message = $"Lỗi tải chi tiết đơn hàng: {ex.Message}",
+                    Data = null
                 };
             }
         }

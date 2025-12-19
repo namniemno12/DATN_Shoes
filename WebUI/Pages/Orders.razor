@@ -210,11 +210,11 @@
                                                             @GetGhnStatusBadge(order.GhnStatus)
                                                         </div>
                                                     }
-                                                    @if (order.GhnFee.HasValue)
+                                                    @if (order.ShippingFee > 0)
                                                     {
                                                         <div class="mb-2">
-                                                            <small class="text-muted d-block">Phí ship GHN</small>
-                                                            <strong class="text-success">@order.GhnFee.Value.ToString("N0") ₫</strong>
+                                                            <small class="text-muted d-block">Phí ship</small>
+                                                            <strong class="text-success">@order.ShippingFee.ToString("N0") ₫</strong>
                                                         </div>
                                                     }
                                                     <div class="mb-2">
@@ -453,6 +453,12 @@
 
     private void ViewOrderDetail(string orderId)
     {
+        if (string.IsNullOrWhiteSpace(orderId))
+        {
+            ToastService.ShowError("Mã đơn hàng không hợp lệ");
+            return;
+        }
+
         NavigationManager.NavigateTo($"/order-detail/{orderId}");
     }
 

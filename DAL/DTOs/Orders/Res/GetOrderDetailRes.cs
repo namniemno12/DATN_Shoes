@@ -8,6 +8,8 @@
         public string FullName { get; set; }
         public string PhoneNumber { get; set; }
         public string PaymentMethod { get; set; }
+        public int PaymentStatus { get; set; }
+        public string PaymentStatusText { get; set; } = string.Empty;
         public string? ShippingProvider { get; set; }
  
         public string? TrackingNumber { get; set; }
@@ -16,6 +18,9 @@
         public string OrderType { get; set; }
         public DateTime OrderDate { get; set; }
         public int Status { get; set; }
+        public decimal Subtotal { get; set; }
+        public decimal ShippingFee { get; set; }
+        public decimal Discount { get; set; }
         public decimal TotalAmount { get; set; }
         public string? Address { get; set; }
         public string Note { get; set; }

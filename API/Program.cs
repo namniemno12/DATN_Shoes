@@ -130,7 +130,7 @@ builder.Services.AddCors(options =>
     });
 });
 
-
+CryptoHelperUtil.Init(builder.Configuration);
 builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 
 var serviceProvider = builder.Services.BuildServiceProvider();

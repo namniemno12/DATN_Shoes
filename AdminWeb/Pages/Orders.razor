@@ -376,9 +376,10 @@
 </div>
 
 <!-- Order Detail Modal -->
-<OrderDetailDialog Show="@showDetailModal" 
-                   Order="@selectedOrder" 
-                   OnClose="CloseDetailModal" 
+<OrderDetailDialog Show="@showDetailModal"
+                   Order="@selectedOrder"
+                   IsLoading="@isDetailLoading"
+                   OnClose="CloseDetailModal"
                    OnStatusChanged="LoadData" />
 
 @code {
@@ -386,6 +387,7 @@
     private OrderStatisticsSummary? statistics;
     private AdminOrderDetail? selectedOrder;
     private bool showDetailModal = false;
+    private bool isDetailLoading = false;
     private bool isLoading = false;
 
     // Filter properties
@@ -479,10 +481,32 @@
 
     private async Task ViewOrderDetail(int orderId)
     {
-        selectedOrder = await OrderService.GetOrderDetailAsync(orderId);
-        if (selectedOrder != null)
+        isDetailLoading = true;
+        showDetailModal = true;
+        selectedOrder = null;
+        StateHasChanged();
+
+        try
         {
-            showDetailModal = true;
+            var detail = await OrderService.GetOrderDetailAsync(orderId);
+            if (detail != null)
+            {
+                selectedOrder = detail;
+            }
+            else
+            {
+                Toast.Error("Không tải được chi tiết đơn hàng");
+                showDetailModal = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Toast.Error($"Lỗi tải chi tiết đơn hàng: {ex.Message}");
+            showDetailModal = false;
+        }
+        finally
+        {
+            isDetailLoading = false;
             StateHasChanged();
         }
     }
@@ -491,6 +515,7 @@
     {
         showDetailModal = false;
         selectedOrder = null;
+        isDetailLoading = false;
     }
 
     private async Task ConfirmOrder(int orderId)

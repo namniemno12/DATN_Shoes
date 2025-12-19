@@ -1030,8 +1030,10 @@
 
         try
         {
-            var orderAmountBeforeDiscount = Subtotal + ShippingFee;
-            var result = await VoucherService.ValidateVoucherAsync(VoucherCode, orderAmountBeforeDiscount);
+            // ✅ FIX: Validate voucher chỉ với SUBTOTAL (giá trị sản phẩm)
+            // Discount chỉ áp dụng cho giá trị sản phẩm, KHÔNG bao gồm phí ship
+            var orderAmountForVoucher = Subtotal;
+            var result = await VoucherService.ValidateVoucherAsync(VoucherCode, orderAmountForVoucher);
 
             if (result != null && result.IsValid)
             {

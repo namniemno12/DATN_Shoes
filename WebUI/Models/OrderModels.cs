@@ -13,6 +13,8 @@ namespace WebUI.Models
         public string? Note { get; set; }
         public List<OrderDetailRequest> OrderDetails { get; set; } = new();
         
+        public decimal ShippingFee { get; set; } = 0;
+        
         // GHN Address Fields
         public int? GhnProvinceId { get; set; }
         public int? GhnDistrictId { get; set; }

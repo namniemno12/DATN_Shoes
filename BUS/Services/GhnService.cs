@@ -301,7 +301,10 @@ namespace BUS.Services
                 // 5. Lưu thông tin GHN vào DB
                 order.GhnOrderCode = ghnResponse.Data.OrderCode;
                 order.GhnStatus = "ready_to_pick"; // ✅ Status mặc định khi tạo đơn GHN
-                order.GhnFee = ghnResponse.Data.TotalFee;
+                if (ghnResponse.Data.TotalFee.HasValue)
+                {
+                    order.ShippingFee = (decimal)ghnResponse.Data.TotalFee.Value;
+                }
                 order.GhnCreatedAt = DateTime.Now;
                 order.GhnUpdatedAt = DateTime.Now;
 
@@ -450,7 +453,7 @@ namespace BUS.Services
                         OrderCode = o.OrderCode,
                         GhnOrderCode = o.GhnOrderCode,
                         GhnStatus = o.GhnStatus,
-                        GhnFee = o.GhnFee,
+                        ShippingFee = o.ShippingFee,
                         CodCollected = o.CodCollected,
                         LastUpdated = o.GhnUpdatedAt
                     })
@@ -473,7 +476,11 @@ namespace BUS.Services
                             // Cập nhật thông tin từ GHN vào response
                             order.GhnStatus = ghnDetail.Status ?? order.GhnStatus;
                             order.GhnStatusText = ghnDetail.StatusText ?? GetStatusText(ghnDetail.Status);
-                            order.GhnFee = ghnDetail.TotalFee ?? order.GhnFee;
+                            // Keep ShippingFee as the single source; do not surface GhnFee
+                            if (ghnDetail.TotalFee.HasValue)
+                            {
+                                order.ShippingFee = ghnDetail.TotalFee.Value;
+                            }
                             order.CodCollected = ghnDetail.IsCodCollected;
                             order.ExpectedDeliveryTime = ghnDetail.ExpectedDeliveryTime ?? ghnDetail.Leadtime;
                             order.LastUpdated = ghnDetail.UpdatedDate ?? order.LastUpdated;
@@ -483,7 +490,10 @@ namespace BUS.Services
                             if (dbOrder != null)
                             {
                                 dbOrder.GhnStatus = ghnDetail.Status;
-                                dbOrder.GhnFee = ghnDetail.TotalFee;
+                                if (ghnDetail.TotalFee.HasValue)
+                                {
+                                    dbOrder.ShippingFee = ghnDetail.TotalFee.Value;
+                                }
                                 dbOrder.CodCollected = ghnDetail.IsCodCollected;
                                 dbOrder.GhnUpdatedAt = DateTime.Now;
                                 await _context.SaveChangesAsync();

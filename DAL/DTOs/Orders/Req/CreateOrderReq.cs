@@ -8,6 +8,9 @@ namespace DAL.DTOs.Orders.Req
         public int UserID { get; set; }
         public int? PaymentID { get; set; }
         public int? VoucherID { get; set; }
+        
+        [Range(0, 10000000, ErrorMessage = "ShippingFee must be >= 0")]
+        public decimal ShippingFee { get; set; } = 0;
 
         [Required(ErrorMessage = "OrderType is required")]
         [MaxLength(50)]

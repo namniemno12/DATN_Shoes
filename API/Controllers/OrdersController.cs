@@ -62,6 +62,14 @@ namespace API.Controllers
         }
 
         [HttpGet]
+        [Route("GetOrderDetail")]
+        [BAuthorize]
+        public async Task<CommonResponse<GetOrderDetailRes>> GetOrderDetail([FromQuery] int orderId)
+        {
+            return await _orderServices.GetOrderDetail(orderId);
+        }
+
+        [HttpGet]
         [Route("GetOrderStatistics")]
         [BAuthorize]
         public async Task<CommonResponse<GetOrderStatisticsRes>> GetOrderStatistics(

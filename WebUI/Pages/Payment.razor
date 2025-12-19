@@ -384,6 +384,7 @@
             Address = checkoutInfo.Address,
             Note = checkoutInfo.Note,
             OrderDetails = GetOrderDetails(checkoutInfo),
+            ShippingFee = checkoutInfo.ShippingFee,
             // GHN Address Fields
             GhnProvinceId = checkoutInfo.GhnProvinceId,
             GhnDistrictId = checkoutInfo.GhnDistrictId,
@@ -471,7 +472,13 @@
                 OrderType = "online",
                 Address = $"{checkoutInfo.Address}, {checkoutInfo.City}",
                 Note = checkoutInfo.Note,
-                OrderDetails = GetOrderDetails(checkoutInfo)
+                OrderDetails = GetOrderDetails(checkoutInfo),
+                ShippingFee = checkoutInfo.ShippingFee,
+                // GHN Address Fields
+                GhnProvinceId = checkoutInfo.GhnProvinceId,
+                GhnDistrictId = checkoutInfo.GhnDistrictId,
+                GhnWardCode = checkoutInfo.GhnWardCode,
+                GhnFullAddress = checkoutInfo.GhnFullAddress
             };
 
             var createOrderResult = await OrderService.CreateOrderAsync(orderRequest);
