@@ -22,5 +22,7 @@
         public DateTime CreatedAt { get; set; }
         public string? Note { get; set; }
         public List<GetOrderItemRes> Items { get; set; }
+
+        public string FullAddress => $"{ShippingAddress}, {Ward}, {District}, {City}".TrimEnd(", ".ToCharArray());
     }
 }

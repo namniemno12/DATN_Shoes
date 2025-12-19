@@ -280,9 +280,7 @@ namespace BUS.Services
                         Ward = address?.Ward ?? "",
                         District = address?.District ?? "",
                         City = address?.City ?? "",
-                        FullAddress = address != null 
-                            ? $"{address.Street}, {address.Ward}, {address.District}, {address.City}" 
-                            : order.Address ?? "",
+                        FullAddress =order.GhnFullAddress ?? "",
                         Note = order.Note
                     },
                     Payment = new OrderPaymentInfo

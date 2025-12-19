@@ -12,7 +12,8 @@
         public DateTime OrderDate { get; set; }
 
         public int Status { get; set; }           
-        public string Address { get; set; }         
+        public string Address { get; set; }
+        public string? GhnFullAddress { get; set; }
         public decimal TotalAmount { get; set; }      
     }
 }

@@ -334,7 +334,9 @@
 
         ReceiverName = checkoutInfo.FullName;
         ReceiverPhone = checkoutInfo.Phone;
-        ShippingAddress = $"{checkoutInfo.Address}, {checkoutInfo.City}";
+        ShippingAddress = string.IsNullOrEmpty(checkoutInfo.GhnFullAddress) 
+            ? $"{checkoutInfo.Address}, {checkoutInfo.City}".TrimEnd(',', ' ')
+            : checkoutInfo.GhnFullAddress;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -463,7 +465,7 @@
                 PaymentID = GetPaymentId(SelectedPaymentMethod) ?? 0, // Map payment method to PaymentID
                 VoucherID = checkoutInfo.VoucherID, // Apply voucher if selected
                 OrderType = "online",
-                Address = $"{checkoutInfo.Address}, {checkoutInfo.City}",
+                Address = string.IsNullOrEmpty(checkoutInfo.GhnFullAddress) ? $"{checkoutInfo.Address}, {checkoutInfo.City}" : checkoutInfo.GhnFullAddress,
                 Note = checkoutInfo.Note,
                 OrderDetails = GetOrderDetails(checkoutInfo),
                 ShippingFee = checkoutInfo.ShippingFee,

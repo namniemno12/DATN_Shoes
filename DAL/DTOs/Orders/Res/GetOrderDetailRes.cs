@@ -23,6 +23,7 @@
         public decimal Discount { get; set; }
         public decimal TotalAmount { get; set; }
         public string? Address { get; set; }
+        public string? GhnFullAddress { get; set; }
         public string Note { get; set; }
         public List<GetProductDetailRes> ListProduct { get; set; }
     }

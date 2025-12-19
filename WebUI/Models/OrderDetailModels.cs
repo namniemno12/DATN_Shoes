@@ -64,6 +64,9 @@ namespace WebUI.Models
         [JsonPropertyName("address")]
         public string? Address { get; set; }
 
+        [JsonPropertyName("ghnFullAddress")]
+        public string? GhnFullAddress { get; set; }
+
         [JsonPropertyName("note")]
         public string Note { get; set; } = string.Empty;
 

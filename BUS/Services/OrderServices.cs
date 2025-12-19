@@ -155,7 +155,7 @@ namespace BUS.Services
                     ReceiverName = user?.FullName ?? string.Empty,
                     ReceiverPhone = user?.Phone ?? string.Empty,
                     ReceiverEmail = user?.Email ?? string.Empty,
-                    ShippingAddress = address?.Street ?? o.Address ?? string.Empty,
+                    ShippingAddress = o.GhnFullAddress ?? "",
                     Ward = address?.Ward,
                     District = address?.District,
                     City = address?.City,
@@ -373,7 +373,7 @@ namespace BUS.Services
                             }
 
                             string discountType = (voucher.DiscountType ?? "").Trim();
-                            
+
                             // ✅ FIX: Tính discount CHỈ dựa trên SUBTOTAL (giá trị sản phẩm)
                             // KHÔNG tính trên phí ship
                             if (discountType.Equals("Percentage", StringComparison.OrdinalIgnoreCase))
@@ -406,7 +406,7 @@ namespace BUS.Services
                                 Console.WriteLine($"[CreateOrder] Discount exceeds subtotal: {discount} -> {totalAmount}");
                                 discount = totalAmount;
                             }
-                            
+
                             Console.WriteLine($"[CreateOrder] Final discount: {discount}");
                         }
                     }
@@ -415,7 +415,7 @@ namespace BUS.Services
                     order.ShippingFee = req.ShippingFee;
                     order.DiscountAmount = discount;
                     order.TotalAmount = totalAmount - discount + req.ShippingFee;
-                    
+
                     Console.WriteLine($"[CreateOrder] Subtotal: {totalAmount}");
                     Console.WriteLine($"[CreateOrder] Discount: {discount}");
                     Console.WriteLine($"[CreateOrder] ShippingFee: {req.ShippingFee}");
@@ -480,6 +480,7 @@ namespace BUS.Services
                             OrderDate = o.OrderDate,
                             Status = o.Status,
                             Address = o.Address,
+                            GhnFullAddress = o.GhnFullAddress,
                             TotalAmount = o.TotalAmount
                         };
 
@@ -606,7 +607,8 @@ namespace BUS.Services
                     ShippingFee = order.ShippingFee,
                     Discount = order.DiscountAmount,
                     TotalAmount = order.TotalAmount,
-                    Address = address != null ? $"{address.Street}, {address.Ward}, {address.City}" : null,
+                    Address = !string.IsNullOrEmpty(order.GhnFullAddress) ? order.GhnFullAddress : (address != null ? $"{address.Street}, {address.Ward}, {address.City}" : order.Address),
+                    GhnFullAddress = order.GhnFullAddress,
                     Note = order.Note,
                     ListProduct = distinctProducts
                 };
